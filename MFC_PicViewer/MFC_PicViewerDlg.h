@@ -3,10 +3,13 @@
 //
 
 #pragma once
-#include"MyButton.h"
-#include"MyStatic.h"
+#include "MyButton.h"
+#include "MyStatic.h"
 #include "MyOpenCV.h"
 #include "MyImageStatic.h"
+#include "MyFilter.h"
+#include "MyNoise.h"
+#include "MyTransforms.h"
 #include<opencv2/opencv.hpp>
 using namespace cv;
 // CMFCPicViewerDlg 对话框
@@ -31,6 +34,15 @@ using namespace cv;
 #define MSG_MENU_LINEAR_GRAYSCALE_MULTIRANGES 1128
 #define MSG_MENU_NONLINEAR_LOG 1129
 #define MSG_MENU_NONLINEAR_EXP 1130
+#define MSG_MENU_DHE 1131
+#define MSG_MENU_DHS 1132
+#define MSG_MENU_FILTER_MAX 1133
+#define MSG_MENU_FILTER_MIN 1134
+#define MSG_MENU_FILTER_MEDIAN 1135
+#define MSG_MENU_FILTER_MEAN 1136
+#define MSG_MENU_NOISE_AWGN 1137
+#define MSG_MENU_NOISE_POISSON_GAUSSIAN 1138
+#define MSG_MENU_NOISE_ELD_SFRN 1139
 
 class CMFCPicViewerDlg : public CDialogEx
 {
@@ -56,6 +68,9 @@ public:
 	CMyButton m_btnMin;
 	CRect m_rtBtnfile;
 	CRect m_rtBtnEdit;
+	CRect m_rtBtnEnhance;
+	CRect m_rtBtnFilterate;
+	CRect m_rtBtnNoise;
 	CRect m_rtBtnAnalyze;
 	CRect m_rtBtnHelp;
 	// 生成的消息映射函数
@@ -101,4 +116,13 @@ public:
 	afx_msg void OnMenuLinearGrayScaleMultiranges();
 	afx_msg void OnMenuNonlinearLog();
 	afx_msg void OnMenuNonlinearExp();
+	afx_msg void OnMenuDHE();
+	afx_msg void OnMenuDHS();
+	afx_msg void OnMenuSpatialFilterMax();
+	afx_msg void OnMenuSpatialFilterMin();
+	afx_msg void OnMenuSpatialFilterMedian();
+	afx_msg void OnMenuSpatialFilterMean();
+	afx_msg void OnMenuNoiseAWGN();
+	afx_msg void OnMenuNoisePoissonGaussian();
+	afx_msg void OnMenuNoiseELDSFRN();
 };

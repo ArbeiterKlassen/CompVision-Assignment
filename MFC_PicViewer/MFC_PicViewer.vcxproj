@@ -193,8 +193,10 @@
     <ClInclude Include="MFC_PicViewer.h" />
     <ClInclude Include="MFC_PicViewerDlg.h" />
     <ClInclude Include="MyButton.h" />
+    <ClInclude Include="MyFilter.h" />
     <ClInclude Include="MyImageStatic.h" />
     <ClInclude Include="MyMenu.h" />
+    <ClInclude Include="MyNoise.h" />
     <ClInclude Include="MyOpenCV.h" />
     <ClInclude Include="MyStatic.h" />
     <ClInclude Include="MyTransforms.h" />
@@ -206,8 +208,10 @@
     <ClCompile Include="MFC_PicViewer.cpp" />
     <ClCompile Include="MFC_PicViewerDlg.cpp" />
     <ClCompile Include="MyButton.cpp" />
+    <ClCompile Include="MyFilter.cpp" />
     <ClCompile Include="MyImageStatic.cpp" />
     <ClCompile Include="MyMenu.cpp" />
+    <ClCompile Include="MyNoise.cpp" />
     <ClCompile Include="MyOpenCV.cpp" />
     <ClCompile Include="MyStatic.cpp" />
     <ClCompile Include="MyTransforms.cpp" />

@@ -51,6 +51,12 @@
     <ClInclude Include="MyTransforms.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MyFilter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyNoise.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MFC_PicViewer.cpp">
@@ -78,6 +84,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyTransforms.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyFilter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyNoise.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
