@@ -68,7 +68,7 @@ double noise_ELD_SFRN_sigmaT = 3.0;
 double noise_ELD_SFRN_sigmaG = 2.0;
 double noise_ELD_SFRN_q = 1.0;
 double butterworth_D0 = 500.0;
-UINT butterworth_level = 2;
+UINT butterworth_level = 1;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -860,7 +860,11 @@ void CMFCPicViewerDlg::OnMenuSaveTo()
 	// 3. OpenCV 保存
 	bool ok = false;
 	if (strExt.CompareNoCase(_T(".jpg")) == 0 || strExt.CompareNoCase(_T(".jpeg")) == 0)
-		ok = cv::imwrite(Cstring_to_cvString(save_file_path), current_img,
+		if (current_img.type() == CV_32FC2) {
+			ok = cv::imwrite(Cstring_to_cvString(save_file_path), Transforms::Fourier::spectrumView(current_img),
+				std::vector<int>{cv::IMWRITE_JPEG_QUALITY, 95});
+		}
+		else ok = cv::imwrite(Cstring_to_cvString(save_file_path), current_img,
 			std::vector<int>{cv::IMWRITE_JPEG_QUALITY, 95});
 	else
 		ok = cv::imwrite(Cstring_to_cvString(save_file_path), current_img);
@@ -913,12 +917,20 @@ void CMFCPicViewerDlg::OnMenuSaveAsTo()
 	bool ok = false;
 	if (ext == _T(".jpg") || ext == _T(".jpeg"))
 	{
-		ok = cv::imwrite(Cstring_to_cvString(savePath), current_img,
+		if (current_img.type() == CV_32FC2) {
+			ok = cv::imwrite(Cstring_to_cvString(save_file_path), Transforms::Fourier::spectrumView(current_img),
+				std::vector<int>{cv::IMWRITE_JPEG_QUALITY, 95});
+		}
+		else ok = cv::imwrite(Cstring_to_cvString(save_file_path), current_img,
 			std::vector<int>{cv::IMWRITE_JPEG_QUALITY, 95});
 	}
 	else if (ext == _T(".png"))
 	{
-		ok = cv::imwrite(Cstring_to_cvString(savePath), current_img,
+		if (current_img.type() == CV_32FC2) {
+			ok = cv::imwrite(Cstring_to_cvString(savePath), Transforms::Fourier::spectrumView(current_img),
+				std::vector<int>{cv::IMWRITE_PNG_COMPRESSION, 9});
+		}
+		else ok = cv::imwrite(Cstring_to_cvString(savePath), current_img,
 			std::vector<int>{cv::IMWRITE_PNG_COMPRESSION, 9});
 	}
 	else
