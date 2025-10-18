@@ -1,13 +1,13 @@
 ﻿
 // MFC_PicViewerDlg.cpp: 实现文件
 //
-
+//程序头
 #include "pch.h"
 #include "framework.h"
 #include "MFC_PicViewer.h"
 #include "MFC_PicViewerDlg.h"
 #include "afxdialogex.h"
-
+//自定义头
 #include "MyMenu.h"
 #include "MyButton.h"
 #include "MyStatic.h"
@@ -16,9 +16,18 @@
 #include "MyTransforms.h"
 #include "MyFilter.h"
 #include "MyNoise.h"
-
+#include "MyEditControl.h"
+//STL头
 #include <opencv2/opencv.hpp>
 #include <stack>
+#include <cmath>
+#include <algorithm>
+#include <complex>
+#include <vector>
+
+//窗口头
+#include "MFC_PicViewer_OptionDlg.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 
@@ -36,7 +45,9 @@ Mat next_img(10, 10, CV_8UC3, cv::Scalar(39, 34, 30));
 Mat Analyze_img(10, 10, CV_8UC3, cv::Scalar(39, 34, 30));
 Mat referrence_img(10, 10, CV_8UC3, cv::Scalar(39, 34, 30));
 std::stack<Mat> img_stack;
+UINT Infobar_line = 0;
 
+//自定义参数区
 float scale_x = 1.1;
 float scale_y = 1.3;
 float rotate_theta = 90;
@@ -48,7 +59,7 @@ std::pair<int, int> output_grayscale = make_pair(100, 155);
 std::vector<std::pair<int, int>> oper_ranges{ make_pair(0,49),make_pair(50,199),make_pair(200,255)};
 std::vector<std::pair<int, int>> gray_scales{ make_pair(0,24),make_pair(50,224),make_pair(227,255) };
 
-UINT filter_kernel = 3;
+UINT filter_kernel = 7;
 float noise_AWGN_sigma = 25.0;
 double noise_Poisson_Gaussian_gain = 4.0;
 double noise_Poisson_Gaussian_sigma = 5.0;
@@ -56,6 +67,8 @@ double noise_ELD_SFRN_alpha = 4.0;
 double noise_ELD_SFRN_sigmaT = 3.0;
 double noise_ELD_SFRN_sigmaG = 2.0;
 double noise_ELD_SFRN_q = 1.0;
+double butterworth_D0 = 500.0;
+UINT butterworth_level = 2;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -110,6 +123,7 @@ void CMFCPicViewerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_STATIC_TITLE_ANALYZE, m_myText_Analyse_Title);
 	DDX_Control(pDX, IDC_STATIC_PIC, m_picStatic);
 	DDX_Control(pDX, IDC_STATIC_PIC_ANALYZE, m_picStatic_Analyze);
+	DDX_Control(pDX, IDC_INFOBAR, Info_Bar_Cedit);
 }
 
 BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
@@ -131,7 +145,7 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_BINARYIZE, &CMFCPicViewerDlg::OnMenuBinaryize)
 	ON_COMMAND(MSG_MENU_UNDO, &CMFCPicViewerDlg::OnMenuUndo)
 	ON_COMMAND(MSG_MENU_RELOAD, &CMFCPicViewerDlg::OnMenuReload)
-	ON_COMMAND(MSG_MENU_ABOUT, &CMFCPicViewerDlg::OnMenuAbout)
+	ON_COMMAND(MSG_MENU_OPTION, &CMFCPicViewerDlg::OnMenuOption)
 	ON_COMMAND(MSG_MENU_SHIFT, &CMFCPicViewerDlg::OnMenuShift)
 	ON_COMMAND(MSG_MENU_SCALE, &CMFCPicViewerDlg::OnMenuScale)
 	ON_COMMAND(MSG_MENU_ROTATE, &CMFCPicViewerDlg::OnMenuRotate)
@@ -153,6 +167,11 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_NOISE_AWGN, &CMFCPicViewerDlg::OnMenuNoiseAWGN)
 	ON_COMMAND(MSG_MENU_NOISE_POISSON_GAUSSIAN, &CMFCPicViewerDlg::OnMenuNoisePoissonGaussian)
 	ON_COMMAND(MSG_MENU_NOISE_ELD_SFRN, &CMFCPicViewerDlg::OnMenuNoiseELDSFRN)
+	ON_COMMAND(MSG_MENU_SAVE_ANALYZE_TO, &CMFCPicViewerDlg::OnMenuSaveAnalyzeTo)
+	ON_COMMAND(MSG_MENU_DFT, &CMFCPicViewerDlg::OnMenuDFT)
+	ON_COMMAND(MSG_MENU_IDFT, &CMFCPicViewerDlg::OnMenuIDFT)
+	ON_COMMAND(MSG_MENU_FILTER_BUTTERWORTH_LOW, &CMFCPicViewerDlg::OnMenuButterworthLowFilter)
+	ON_COMMAND(MSG_MENU_FILTER_BUTTERWORTH_HIGH, &CMFCPicViewerDlg::OnMenuButterworthHighFilter)
 END_MESSAGE_MAP()
 
 
@@ -347,19 +366,19 @@ void CMFCPicViewerDlg::OnPaint()
 		str1 = TEXT("分析");
 		dc.SetTextColor(RGB(185, 192, 197));
 		dc.DrawText(str1, m_rtBtnAnalyze, DT_LEFT | DT_VCENTER);
-		//绘制帮助菜单栏
+		//绘制配置菜单栏
 		GetClientRect(&rtBtnClo);
 		rtBtnClo.left = rtBtnClo.left + 370;
 		rtBtnClo.right = rtBtnClo.left + 30;
 		rtBtnClo.bottom *= 0.1;
 		rtBtnClo.top = rtBtnClo.bottom - 20;
-		m_rtBtnHelp = rtBtnClo;
+		m_rBtnOption = rtBtnClo;
 		dc.Rectangle(rtBtnClo);
-		dc.FillSolidRect(m_rtBtnHelp, RGB(45, 51, 59));
+		dc.FillSolidRect(m_rBtnOption, RGB(45, 51, 59));
 		dc.SetBkMode(TRANSPARENT);
-		str1 = TEXT("帮助");
+		str1 = TEXT("配置");
 		dc.SetTextColor(RGB(185, 192, 197));
-		dc.DrawText(str1, m_rtBtnHelp, DT_LEFT | DT_VCENTER);
+		dc.DrawText(str1, m_rBtnOption, DT_LEFT | DT_VCENTER);
 
 		SelectObject(dc, loldfont);
 		DeleteObject(hNewFont);
@@ -391,7 +410,13 @@ LRESULT CMFCPicViewerDlg::OnNcHitTest(CPoint point)
 		if (HTCLIENT == nHitTest)
 			nHitTest = HTCAPTION;
 		//如果鼠标点中的是关闭按钮的位置，需要将上一步的设置还原，
-		if (m_rtBtnfile.PtInRect(point) || m_rtBtnEdit.PtInRect(point) || m_rtBtnAnalyze.PtInRect(point) || m_rtBtnHelp.PtInRect(point))
+		if (m_rtBtnfile.PtInRect(point) ||
+			m_rtBtnEdit.PtInRect(point) ||
+			m_rtBtnEnhance.PtInRect(point) ||
+			m_rtBtnFilterate.PtInRect(point) ||
+			m_rtBtnNoise.PtInRect(point) ||
+			m_rtBtnAnalyze.PtInRect(point) ||
+			m_rBtnOption.PtInRect(point))
 		{
 			nHitTest = HTCLIENT;
 		}
@@ -519,8 +544,13 @@ HBRUSH CMFCPicViewerDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 void CMFCPicViewerDlg::CVMat_to_Pic(cv::Mat& img, UINT nID)
 {
-	if (img.channels() == 1) {
-		cvtColor(img, img, COLOR_GRAY2BGR);
+	Mat _img;
+	img.copyTo(_img);
+	if (_img.type() == CV_32FC2) {
+		_img = Transforms::Fourier::spectrumView(_img);
+	}
+	if (_img.channels() == 1) {
+		cvtColor(_img, _img, COLOR_GRAY2BGR);
 	}
 	CWnd* pWnd = GetDlgItem(nID);
 	if (!pWnd) return;
@@ -530,16 +560,16 @@ void CMFCPicViewerDlg::CVMat_to_Pic(cv::Mat& img, UINT nID)
 	int ctrlW = rect.Width();
 	int ctrlH = rect.Height();
 
-	if (img.empty() || ctrlW <= 0 || ctrlH <= 0)
+	if (_img.empty() || ctrlW <= 0 || ctrlH <= 0)
 		return;
 
 	// 计算缩放比例（保持宽高比）
-	double scaleX = static_cast<double>(ctrlW) / img.cols;
-	double scaleY = static_cast<double>(ctrlH) / img.rows;
+	double scaleX = static_cast<double>(ctrlW) / _img.cols;
+	double scaleY = static_cast<double>(ctrlH) / _img.rows;
 	double scale = min(scaleX, scaleY);  // 取较小比例，防止溢出
 
-	int dstW = cvRound(img.cols * scale);
-	int dstH = cvRound(img.rows * scale);
+	int dstW = cvRound(_img.cols * scale);
+	int dstH = cvRound(_img.rows * scale);
 
 	// 计算居中偏移
 	int offsetX = (ctrlW - dstW) / 2;
@@ -547,7 +577,7 @@ void CMFCPicViewerDlg::CVMat_to_Pic(cv::Mat& img, UINT nID)
 
 	// 等比例缩放图像
 	cv::Mat imgResized;
-	cv::resize(img, imgResized, cv::Size(dstW, dstH));
+	cv::resize(_img, imgResized, cv::Size(dstW, dstH));
 
 	// 创建空白画布（填充背景色），注意画布的宽度和高度是控件的尺寸
 	// 但我们需要确保画布的每行字节数是4的倍数
@@ -606,12 +636,15 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.SetItemHeight(30);
 		m_MenuEx.SetFontInfo(14);
 		m_MenuEx.SetBorderColor(RGB(45, 51, 60));
-		m_MenuEx.SetMenuWidth(60);
+		m_MenuEx.SetMenuWidth(130);
 		m_MenuEx.InstallHook(theApp.m_hInstance);
 
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_OPEN, _T("打开"), _T(""), 0);
-		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SAVETO, _T("保存到..."), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SAVETO, _T("保存图像到..."), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SAVE_ANALYZE_TO, _T("保存分析结果到..."), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SAVEASTO, _T("另存为..."), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_UNDO, _T("撤销"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_RELOAD, _T("恢复"), _T(""), 0);
 
 		CRect rectDlg;
 		GetWindowRect(rectDlg);//获得窗体的大小
@@ -646,8 +679,8 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_LINEAR_GRAYSCALE_MULTIRANGES, _T("分段线性灰度变换"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_NONLINEAR_LOG, _T("对数灰度变换"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_NONLINEAR_EXP, _T("指数灰度变换"), _T(""), 0);
-		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_UNDO, _T("撤销"), _T(""), 0);
-		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_RELOAD, _T("恢复"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_DFT, _T("离散傅里叶变换"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_IDFT, _T("逆离散傅里叶变换"), _T(""), 0);
 
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 70, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
@@ -692,6 +725,8 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_FILTER_MIN, _T("邻域最小值滤波"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_FILTER_MEDIAN, _T("邻域中值滤波"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_FILTER_MEAN, _T("邻域均值滤波"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_FILTER_BUTTERWORTH_LOW, _T("巴特沃斯低通滤波"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_FILTER_BUTTERWORTH_HIGH, _T("巴特沃斯高通滤波"), _T(""), 0);
 
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 190, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
@@ -742,7 +777,7 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.UnInstallHook();
 	}
 
-	if (m_rtBtnHelp.PtInRect(point))
+	if (m_rBtnOption.PtInRect(point))
 	{
 		CRect rectDlg;
 		GetWindowRect(rectDlg);//获得窗体的大小
@@ -755,7 +790,7 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.SetMenuWidth(130);
 		m_MenuEx.InstallHook(theApp.m_hInstance);
 
-		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_ABOUT, _T("关于 PicViewer"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_OPTION, _T("参数配置"), _T(""), 0);
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 370, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
 
@@ -908,7 +943,7 @@ void CMFCPicViewerDlg::OnMenuGrayize()
 	Mat gray = Transforms::Transform(current_img,Transforms::Modules::BASIC::GRAYIZE);
 	cvtColor(gray,current_img,COLOR_GRAY2BGR);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度化完成"));
+	Info_append(("灰度化完成"));
 }
 
 
@@ -923,7 +958,7 @@ void CMFCPicViewerDlg::OnMenuBinaryize()
 	Mat binary = Transforms::Transform(current_img,Transforms::Modules::BASIC::BINARYIZE);
 	cvtColor(binary, current_img, COLOR_GRAY2BGR);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("二值化完成"));
+	Info_append(("二值化完成"));
 }
 
 void CMFCPicViewerDlg::OnMenuUndo()
@@ -941,7 +976,7 @@ void CMFCPicViewerDlg::OnMenuUndo()
 	current_img = img_stack.top();
 	img_stack.pop();
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("撤销一步！"));
+	Info_append(("撤销一步！"));
 }
 
 void CMFCPicViewerDlg::OnMenuReload()
@@ -951,7 +986,7 @@ void CMFCPicViewerDlg::OnMenuReload()
 
 	current_img = origin_img.clone(); // 必须 clone，避免共享内存
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("重置完成"));
+	Info_append(("重置完成"));
 }
 
 void CMFCPicViewerDlg::OnMenuShift() {
@@ -963,7 +998,7 @@ void CMFCPicViewerDlg::OnMenuShift() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img,shift_x,shift_y, Transforms::Modules::BASIC::SHIFT);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("平移完成"));
+	Info_append(("平移完成"));
 }
 
 void CMFCPicViewerDlg::OnMenuScale() {
@@ -975,7 +1010,7 @@ void CMFCPicViewerDlg::OnMenuScale() {
 	img_stack.push(current_img.clone());                             // 结果图像
 	current_img = Transforms::Transform(current_img,scale_x,scale_y,Transforms::Modules::BASIC::SCALE);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("放缩完成"));
+	Info_append(("放缩完成"));
 }
 void CMFCPicViewerDlg::OnMenuRotate() {
 	if (img_stack.empty() || current_img.empty())
@@ -987,21 +1022,23 @@ void CMFCPicViewerDlg::OnMenuRotate() {
 	current_img = Transforms::Transform(current_img,rotate_theta,Transforms::Modules::BASIC::ROTATE);
 	// 执行旋转                           // 返回旋转结果
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("旋转完成"));
+	Info_append(("旋转完成"));
 }
-void CMFCPicViewerDlg::OnMenuAbout()
+void CMFCPicViewerDlg::OnMenuOption()
 {
-	AfxMessageBox(_T("关于功能待实现"));
+	MFC_PicViewer_OptionDlg* OptionDlg = new MFC_PicViewer_OptionDlg();
+	OptionDlg->Create(IDD_DIALOG1);
+	OptionDlg->ShowWindow(SW_SHOW);
+	UpdateData(TRUE); 
 }
 
-void Count_Gray_MinMax(Mat grayhist, UINT histSize) {
+pair<int,int> Count_Gray_MinMax(Mat grayhist, UINT histSize) {
 	int gmin = 256, gmax = 1;
 	for (int i = 0; i < histSize; ++i) {
 		gmin = gmin < cvRound(grayhist.at<float>(i)) ? gmin : cvRound(grayhist.at<float>(i));
 		gmax = gmax > cvRound(grayhist.at<float>(i)) ? gmax : cvRound(grayhist.at<float>(i));
 	}
-	AfxMessageBox(_T("灰度最小值为：") + CString(to_string(gmin).c_str()));
-	AfxMessageBox(_T("灰度最大值为：") + CString(to_string(gmax).c_str()));
+	return make_pair(gmin, gmax);
 }
 void CMFCPicViewerDlg::OnMenuHistogram()
 {
@@ -1047,8 +1084,9 @@ void CMFCPicViewerDlg::OnMenuHistogram()
 			cv::Point(bin_w * i, hist_h - cvRound(r_hist.at<float>(i))),
 			cv::Scalar(0, 0, 255), 2);
 	}
+	Analyze_img = histImage;
 	CVMat_to_Pic(histImage, IDC_STATIC_PIC_ANALYZE);
-	AfxMessageBox(_T("分析完成"));
+	Info_append(("分析完成"));
 }
 void CMFCPicViewerDlg::OnMenuHistogramGray() {
 	if (img_stack.empty() || current_img.empty())
@@ -1083,9 +1121,40 @@ void CMFCPicViewerDlg::OnMenuHistogramGray() {
 			cv::Point(bin_w * i, hist_h - cvRound(gray_hist.at<float>(i))),
 			cv::Scalar(128, 128, 128), 2);
 	}
+	Analyze_img = histImage;
 	CVMat_to_Pic(histImage, IDC_STATIC_PIC_ANALYZE);
-	Count_Gray_MinMax(gray_hist,histSize);
-	AfxMessageBox(_T("分析完成"));
+	pair<int,int> key = Count_Gray_MinMax(gray_hist,histSize);
+	Info_append("灰度最小值为：");
+	Info_append(to_string(key.first).c_str());
+	Info_append("灰度最大值为：");
+	Info_append(to_string(key.second).c_str());
+	/* ---------- 1. 归一化为概率 ---------- */
+	double total = gray.total();          // 总像素数
+	cv::Mat prob;                         // 概率向量
+	gray_hist.convertTo(prob, CV_64F);    // 转成 double
+	prob /= total;                        // 每个 bin 除以总像素 → 概率
+
+	/* ---------- 2. 计算统计特征 ---------- */
+	double mean = 0.0, variance = 0.0, entropy = 0.0;
+	const double* p = prob.ptr<double>(0);
+
+	for (int i = 0; i < 256; ++i) {
+		mean += i * p[i];                           // 一阶矩
+	}
+	for (int i = 0; i < 256; ++i) {
+		double diff = i - mean;
+		variance += diff * diff * p[i];             // 二阶中心矩
+	}
+	for (int i = 0; i < 256; ++i) {
+		if (p[i] > 1e-12)                           // 避免 log(0)
+			entropy -= p[i] * log2(p[i]);           // Shannon 熵
+	}
+
+	/* ---------- 3. 结果提示 ---------- */
+	CString stats;
+	stats.Format(_T("均值=%.2f\n 方差=%.2f\n 信息熵=%.4f bit"), mean, variance, entropy);
+	Info_append(Cstring_to_cvString(stats));
+	Info_append(("分析完成"));
 }
 
 void CMFCPicViewerDlg::OnMenuTransform(Mat(*func)(Mat), Mat input) {
@@ -1109,7 +1178,7 @@ void CMFCPicViewerDlg::OnMenuNegative() {
 	Mat gray = Transforms::Transform(current_img,Transforms::Modules::LINEAR::NEGATIVE);
 	cvtColor(gray, current_img, COLOR_GRAY2BGR);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度反转完成"));
+	Info_append(("灰度反转完成"));
 }
 void CMFCPicViewerDlg::OnMenuNegativeColorful() {
 	if (img_stack.empty() || current_img.empty())
@@ -1120,7 +1189,7 @@ void CMFCPicViewerDlg::OnMenuNegativeColorful() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img,Transforms::Modules::LINEAR::NEGATIVE_COLORFUL);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度反转完成"));
+	Info_append(("灰度反转完成"));
 }
 void CMFCPicViewerDlg::OnMenuLinearGrayScale() {
 	if (img_stack.empty() || current_img.empty())
@@ -1131,7 +1200,7 @@ void CMFCPicViewerDlg::OnMenuLinearGrayScale() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img,output_grayscale,Transforms::Modules::LINEAR::SCALE_LINEAR);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度线性变换完成"));
+	Info_append(("灰度线性变换完成"));
 }
 void CMFCPicViewerDlg::OnMenuLinearGrayScaleMultiranges() {
 	if (img_stack.empty() || current_img.empty())
@@ -1142,7 +1211,7 @@ void CMFCPicViewerDlg::OnMenuLinearGrayScaleMultiranges() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img,oper_ranges,gray_scales,Transforms::Modules::LINEAR::SCALE_LINEAR_MULTIRANGES);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度线性变换完成"));
+	Info_append(("灰度线性变换完成"));
 }
 void CMFCPicViewerDlg::OnMenuNonlinearLog() {
 	if (img_stack.empty() || current_img.empty())
@@ -1153,7 +1222,7 @@ void CMFCPicViewerDlg::OnMenuNonlinearLog() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img, logK,Transforms::Modules::NONLINEAR::LOG);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度线性变换完成"));
+	Info_append(("灰度线性变换完成"));
 }
 void CMFCPicViewerDlg::OnMenuNonlinearExp() {
 	if (img_stack.empty() || current_img.empty())
@@ -1164,7 +1233,7 @@ void CMFCPicViewerDlg::OnMenuNonlinearExp() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Transform(current_img, expK, Transforms::Modules::NONLINEAR::EXP);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("灰度线性变换完成"));
+	Info_append(("灰度线性变换完成"));
 }
 void CMFCPicViewerDlg::OnMenuDHE() {
 	if (img_stack.empty() || current_img.empty())
@@ -1175,7 +1244,7 @@ void CMFCPicViewerDlg::OnMenuDHE() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Enhance(current_img, Transforms::Modules::ENHANCE::DHE);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("离散直方图均衡化完成"));
+	Info_append(("离散直方图均衡化完成"));
 }
 void CMFCPicViewerDlg::OnMenuDHS() {
 	if (img_stack.empty() || current_img.empty())
@@ -1196,7 +1265,7 @@ void CMFCPicViewerDlg::OnMenuDHS() {
 	img_stack.push(current_img.clone());
 	current_img = Transforms::Enhance(current_img, referrence_img, Transforms::Modules::ENHANCE::DHS);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("离散直方图规定化完成"));
+	Info_append(("离散直方图规定化完成"));
 }
 void CMFCPicViewerDlg::OnMenuSpatialFilterMax() {
 	if (img_stack.empty() || current_img.empty())
@@ -1207,7 +1276,7 @@ void CMFCPicViewerDlg::OnMenuSpatialFilterMax() {
 	img_stack.push(current_img.clone());
 	current_img = Filters::filterate(current_img, filter_kernel ,Filters::Modules::SPATIAL::MAX);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("滤波完成"));
+	Info_append(("滤波完成"));
 }
 void CMFCPicViewerDlg::OnMenuSpatialFilterMin() {
 	if (img_stack.empty() || current_img.empty())
@@ -1218,7 +1287,7 @@ void CMFCPicViewerDlg::OnMenuSpatialFilterMin() {
 	img_stack.push(current_img.clone());
 	current_img = Filters::filterate(current_img, filter_kernel, Filters::Modules::SPATIAL::MIN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("滤波完成"));
+	Info_append(("滤波完成"));
 }
 void CMFCPicViewerDlg::OnMenuSpatialFilterMedian() {
 	if (img_stack.empty() || current_img.empty())
@@ -1229,7 +1298,7 @@ void CMFCPicViewerDlg::OnMenuSpatialFilterMedian() {
 	img_stack.push(current_img.clone());
 	current_img = Filters::filterate(current_img, filter_kernel, Filters::Modules::SPATIAL::MEDIAN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("滤波完成"));
+	Info_append(("滤波完成"));
 }
 void CMFCPicViewerDlg::OnMenuSpatialFilterMean() {
 	if (img_stack.empty() || current_img.empty())
@@ -1240,7 +1309,7 @@ void CMFCPicViewerDlg::OnMenuSpatialFilterMean() {
 	img_stack.push(current_img.clone());
 	current_img = Filters::filterate(current_img, filter_kernel, Filters::Modules::SPATIAL::MEAN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("滤波完成"));
+	Info_append(("滤波完成"));
 }
 void CMFCPicViewerDlg::OnMenuNoiseAWGN() {
 	if (img_stack.empty() || current_img.empty())
@@ -1251,7 +1320,7 @@ void CMFCPicViewerDlg::OnMenuNoiseAWGN() {
 	img_stack.push(current_img.clone());
 	current_img = Noises::noise(current_img,noise_AWGN_sigma,Noises::Modules::CLASSIC::AWGN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("噪声添加完成"));
+	Info_append(("噪声添加完成"));
 }
 void CMFCPicViewerDlg::OnMenuNoisePoissonGaussian() {
 	if (img_stack.empty() || current_img.empty())
@@ -1262,7 +1331,7 @@ void CMFCPicViewerDlg::OnMenuNoisePoissonGaussian() {
 	img_stack.push(current_img.clone());
 	current_img = Noises::noise(current_img, noise_Poisson_Gaussian_gain, noise_Poisson_Gaussian_sigma, Noises::Modules::CLASSIC::POISSON_GAUSSIAN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("噪声添加完成"));
+	Info_append(("噪声添加完成"));
 }
 void CMFCPicViewerDlg::OnMenuNoiseELDSFRN() {
 	if (img_stack.empty() || current_img.empty())
@@ -1273,5 +1342,121 @@ void CMFCPicViewerDlg::OnMenuNoiseELDSFRN() {
 	img_stack.push(current_img.clone());
 	current_img = Noises::noise(current_img, noise_ELD_SFRN_alpha, noise_ELD_SFRN_sigmaT, noise_ELD_SFRN_sigmaG, noise_ELD_SFRN_q, Noises::Modules::CLASSIC::ELD_SFRN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	AfxMessageBox(_T("噪声添加完成"));
+	Info_append(("噪声添加完成"));
+}
+void CMFCPicViewerDlg::OnMenuSaveAnalyzeTo() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	// 1. 选择文件夹
+	TCHAR szPath[MAX_PATH]{};
+	BROWSEINFO bi{};
+	bi.hwndOwner = this->m_hWnd;
+	bi.lpszTitle = _T("请选择保存目录");
+	bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+
+	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl == nullptr)
+		return; // 用户取消
+
+	if (!SHGetPathFromIDList(pidl, szPath))
+	{
+		CoTaskMemFree(pidl);
+		return;
+	}
+	CoTaskMemFree(pidl);
+
+	CString strFolder = szPath;
+	if (strFolder.Right(1) != _T("\\"))
+		strFolder += _T("\\");
+
+	// 2. 提取原扩展名（含点号）
+	CString strExt = PathFindExtension(file_path); // .jpg 等
+	if (strExt.IsEmpty())
+		strExt = _T(".png");
+
+	save_file_path = strFolder + _T("result") + strExt;
+
+	// 3. OpenCV 保存
+	bool ok = false;
+	if (strExt.CompareNoCase(_T(".jpg")) == 0 || strExt.CompareNoCase(_T(".jpeg")) == 0)
+		ok = cv::imwrite(Cstring_to_cvString(save_file_path), Analyze_img,
+			std::vector<int>{cv::IMWRITE_JPEG_QUALITY, 95});
+	else
+		ok = cv::imwrite(Cstring_to_cvString(save_file_path), Analyze_img);
+
+	// 4. 提示
+	if (ok)
+		AfxMessageBox(_T("已保存到：\n") + save_file_path, MB_ICONINFORMATION);
+	else
+		AfxMessageBox(_T("保存失败！"), MB_ICONERROR);
+}
+void CMFCPicViewerDlg::OnMenuDFT() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Fourier::FFT(current_img);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("傅里叶变换完成"));
+}
+void CMFCPicViewerDlg::OnMenuIDFT() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	//current_img = Transforms::Transform(current_img, Transforms::Modules::FOURIER::IDFT);
+	current_img = Transforms::Fourier::IFFT(current_img);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("逆傅里叶变换完成"));
+}
+void CMFCPicViewerDlg::OnMenuButterworthLowFilter() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	if (current_img.type() != CV_32FC2) {
+		AfxMessageBox(_T("还没有转换傅里叶滤波图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Filters::filterate(current_img, butterworth_level, butterworth_D0, Filters::Modules::BUTTERWORTH::LOW);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("低通滤波完成"));
+};
+void CMFCPicViewerDlg::OnMenuButterworthHighFilter() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	if (current_img.type() != CV_32FC2) {
+		AfxMessageBox(_T("还没有转换傅里叶滤波图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Filters::filterate(current_img, butterworth_level, butterworth_D0, Filters::Modules::BUTTERWORTH::HIGH);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("高通滤波完成"));
+};
+void CMFCPicViewerDlg::Info_append(std::string str) {
+	CString now;
+	CString cstr = CA2T(str.c_str());
+	Info_Bar_Cedit.GetWindowTextW(now);
+	now = now + _T("\r\n") + CA2T(to_string(++Infobar_line).c_str()) + _T(" ") + cstr;
+	Info_Bar_Cedit.SetWindowTextW(now);
+	Info_Bar_Cedit.RedrawWindow();
+	Info_Bar_Cedit.SetSel(1, 1, FALSE);
+	Info_Bar_Cedit.SetFocus();
+}
+void CMFCPicViewerDlg::Info_clear() {
+	Info_Bar_Cedit.SetWindowTextW(_T(""));
+	return;
 }

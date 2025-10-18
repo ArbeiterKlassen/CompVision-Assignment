@@ -77,6 +77,49 @@ namespace Filters {
         }
         return dst;
     }
+    static Mat butterworth_highFilter(const Mat& src, UINT n, double D0)
+    {
+        Mat dst(src.size(), src.type());      // 创建与 src 同尺寸、同类型的目标矩阵
+        int cx = src.cols / 2;                // 频谱中心列坐标
+        int cy = src.rows / 2;                // 频谱中心行坐标
+        for (int i = 0; i < src.rows; ++i)    // 遍历每一行
+        {
+            for (int j = 0; j < src.cols; ++j) // 遍历每一列
+            {
+                int u = j - cx;               // 水平频率：相对于中心的偏移
+                int v = i - cy;               // 垂直频率：相对于中心的偏移
+                float D_uv = std::sqrt(u * u + v * v); // 当前点到频谱中心的距离
+                // 巴特沃斯高通滤波器传递函数：H(u,v) = 1 - 1/(1+(D/D0)^2n)
+                float h = 1.0f - 1.0f / (1 + std::pow(D_uv / D0, 2 * n));
+                // 将复数频谱的实部、虚部同时乘以滤波器增益
+                dst.at<Vec2f>(i, j)[0] = src.at<Vec2f>(i, j)[0] * h;
+                dst.at<Vec2f>(i, j)[1] = src.at<Vec2f>(i, j)[1] * h;
+            }
+        }
+        return dst;                           // 返回滤波后的频域矩阵
+    }
+    static Mat butterworth_lowFilter(const Mat& src, UINT n, double D0)
+    {
+        Mat dst(src.size(), src.type());      // 创建与 src 同尺寸、同类型的目标矩阵
+
+        int cx = src.cols / 2;                // 频谱中心列坐标
+        int cy = src.rows / 2;                // 频谱中心行坐标
+        for (int i = 0; i < src.rows; ++i)    // 遍历每一行
+        {
+            for (int j = 0; j < src.cols; ++j) // 遍历每一列
+            {
+                int u = j - cx;               // 水平频率：相对于中心的偏移
+                int v = i - cy;               // 垂直频率：相对于中心的偏移
+                float D_uv = std::sqrt(u * u + v * v); // 当前点到频谱中心的距离
+                // 巴特沃斯低通滤波器传递函数：H(u,v) = 1/(1+(D/D0)^2n)
+                float h = 1.0f / (1 + std::pow(D_uv / D0, 2 * n));
+                // 将复数频谱的实部、虚部同时乘以滤波器增益
+                dst.at<Vec2f>(i, j)[0] = src.at<Vec2f>(i, j)[0] * h;
+                dst.at<Vec2f>(i, j)[1] = src.at<Vec2f>(i, j)[1] * h;
+            }
+        }
+        return dst;                           // 返回滤波后的频域矩阵
+    }
     Mat filterate(Mat input, UINT kernel_size, UINT MODULE) {
         if (kernel_size < 3 || kernel_size % 2 == 0) return Mat();
         Mat gray;
@@ -92,5 +135,11 @@ namespace Filters {
         default:                       return Mat();
         }
     }
-
+    Mat filterate(Mat input, UINT butterworth_level, double butterworth_D0, UINT MODULE) {
+        switch (MODULE) {
+        case Modules::BUTTERWORTH::HIGH: return butterworth_highFilter(input,butterworth_level,butterworth_D0);
+        case Modules::BUTTERWORTH::LOW: return butterworth_lowFilter(input,butterworth_level, butterworth_D0);
+        default: return Mat();
+        }
+    };
 }

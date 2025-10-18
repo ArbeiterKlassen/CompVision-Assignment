@@ -1,41 +1,48 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
 #include "MyTransforms.h"
 #include <opencv2/opencv.hpp>
 #include <stack>
+#include <cmath>
+#include <complex>
+#include <vector>
 using namespace std;
 using namespace cv;
+using std::complex;
+using std::vector;
 
 int DEFAULT_FLAGMODE = cv::INTER_LINEAR;
 Scalar DEFAULT_FILLCOLOR = cv::Scalar(39, 34, 30);
+namespace Transforms_Assist {
 
-namespace Transforms {
 	uchar gray_binaryize(float x) {
 		return (x < 128) ? 0 : 255;
 	}
 
+}
+namespace Transforms {
 	Mat Transform(Mat input, UINT x, UINT y ,UINT MODULE = Modules::BASIC::SHIFT) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
-		Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, x, 0, 1, y); // Æ½ÒÆ¾ØÕó
-		Size res_size = input.size();             // ÏÈ¸´ÖÆÔ­³ß´ç
-		res_size.width += x;                    // ¿í¶ÈÀ©Õ¹Æ½ÒÆÁ¿
-		res_size.height += y;                   // ¸ß¶ÈÀ©Õ¹Æ½ÒÆÁ¿
+		Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, x, 0, 1, y); // å¹³ç§»çŸ©é˜µ
+		Size res_size = input.size();             // å…ˆå¤åˆ¶åŸå°ºå¯¸
+		res_size.width += x;                    // å®½åº¦æ‰©å±•å¹³ç§»é‡
+		res_size.height += y;                   // é«˜åº¦æ‰©å±•å¹³ç§»é‡
 		Mat res;
 		input.copyTo(res);
-		warpAffine(res, res, transform, res_size, DEFAULT_FLAGMODE, cv::BORDER_CONSTANT, DEFAULT_FILLCOLOR); // Ö´ĞĞÆ½ÒÆ
+		warpAffine(res, res, transform, res_size, DEFAULT_FLAGMODE, cv::BORDER_CONSTANT, DEFAULT_FILLCOLOR); // æ‰§è¡Œå¹³ç§»
 		return res;
 	}
 	Mat Transform(Mat input, float argument, UINT MODULE) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
 		if (MODULE == Modules::BASIC::ROTATE) {
-			int w = input.size().width;               // Ô­Í¼¿í
-			int h = input.size().height;              // Ô­Í¼¸ß
-			int new_w = ceil(abs(w * cos(argument)) + abs(h * sin(argument))); // ¼ÆËãĞı×ªºóËùĞè¿í
-			int new_h = ceil(abs(w * sin(argument)) + abs(h * cos(argument))); // ¼ÆËãĞı×ªºóËùĞè¸ß
-			Point2f rotate_center = Point2f(w / 2.0, h / 2.0); // Ğı×ªÖĞĞÄÈ¡Í¼ÏñÖĞĞÄ
-			Mat rotMat = cv::getRotationMatrix2D(rotate_center, argument, 1.0); // »ñÈ¡Ğı×ª¾ØÕó
-			rotMat.at<double>(0, 2) += (new_w - w) / 2.0; // ²¹Æ½ÒÆÁ¿Ê¹Í¼Ïñ¾ÓÖĞ
+			int w = input.size().width;               // åŸå›¾å®½
+			int h = input.size().height;              // åŸå›¾é«˜
+			int new_w = ceil(abs(w * cos(argument)) + abs(h * sin(argument))); // è®¡ç®—æ—‹è½¬åæ‰€éœ€å®½
+			int new_h = ceil(abs(w * sin(argument)) + abs(h * cos(argument))); // è®¡ç®—æ—‹è½¬åæ‰€éœ€é«˜
+			Point2f rotate_center = Point2f(w / 2.0, h / 2.0); // æ—‹è½¬ä¸­å¿ƒå–å›¾åƒä¸­å¿ƒ
+			Mat rotMat = cv::getRotationMatrix2D(rotate_center, argument, 1.0); // è·å–æ—‹è½¬çŸ©é˜µ
+			rotMat.at<double>(0, 2) += (new_w - w) / 2.0; // è¡¥å¹³ç§»é‡ä½¿å›¾åƒå±…ä¸­
 			rotMat.at<double>(1, 2) += (new_h - h) / 2.0;
 			Mat res;
 			input.copyTo(res);
@@ -43,18 +50,18 @@ namespace Transforms {
 			return res;
 		}
 		else if (MODULE == Modules::NONLINEAR::LOG) {
-			Mat gray(input.rows, input.cols, CV_32FC1);  // ÏÈÓÃ float Ëã
+			Mat gray(input.rows, input.cols, CV_32FC1);  // å…ˆç”¨ float ç®—
 			float maxVal = 0;
 			for (int h = 0; h < input.rows; ++h) {
 				for (int w = 0; w < input.cols; ++w) {
 					uchar p = (uchar)(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
-					float logVal = log(1.0f + p) / log(argument);  // ¼Ó 1 ·À log(0)
+					float logVal = log(1.0f + p) / log(argument);  // åŠ  1 é˜² log(0)
 					gray.at<float>(h, w) = logVal;
 					maxVal = max(maxVal, logVal);
 				}
 			}
-			gray /= maxVal;  // ¹éÒ»»¯µ½ 0~1
-			gray *= 255;     // Ëõ·Åµ½ 0~255
+			gray /= maxVal;  // å½’ä¸€åŒ–åˆ° 0~1
+			gray *= 255;     // ç¼©æ”¾åˆ° 0~255
 			Mat out;
 			gray.convertTo(out, CV_8UC1);
 			return out;
@@ -65,7 +72,7 @@ namespace Transforms {
 			for (int h = 0; h < input.rows; ++h) {
 				for (int w = 0; w < input.cols; ++w) {
 					uchar p = (uchar)(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
-					float expVal = exp(p * log(argument) / 255.0f);  // Ëõ·Å p µ½ 0~1
+					float expVal = exp(p * log(argument) / 255.0f);  // ç¼©æ”¾ p åˆ° 0~1
 					gray.at<float>(h, w) = expVal;
 					maxVal = max(maxVal, expVal);
 				}
@@ -80,13 +87,13 @@ namespace Transforms {
 	}
 	Mat Transform(Mat input, float scalex, float scaley, UINT MODULE = Modules::BASIC::SCALE) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
-		Mat transform = (cv::Mat_<double>(2, 3) << scalex, 0, 0, 0, scaley, 0); // Ëõ·Å¾ØÕó
-		Size res_size = input.size();             // ÏÈ¸´ÖÆÔ­³ß´ç
-		res_size.width = ceil(res_size.width * scalex); // ¼ÆËãËõ·Åºó¿í
-		res_size.height = ceil(res_size.height * scaley); // ¼ÆËãËõ·Åºó¸ß
+		Mat transform = (cv::Mat_<double>(2, 3) << scalex, 0, 0, 0, scaley, 0); // ç¼©æ”¾çŸ©é˜µ
+		Size res_size = input.size();             // å…ˆå¤åˆ¶åŸå°ºå¯¸
+		res_size.width = ceil(res_size.width * scalex); // è®¡ç®—ç¼©æ”¾åå®½
+		res_size.height = ceil(res_size.height * scaley); // è®¡ç®—ç¼©æ”¾åé«˜
 		Mat res;
 		input.copyTo(res);
-		warpAffine(res, res, transform, res_size, DEFAULT_FLAGMODE, cv::BORDER_CONSTANT, DEFAULT_FILLCOLOR); // Ö´ĞĞËõ·Å
+		warpAffine(res, res, transform, res_size, DEFAULT_FLAGMODE, cv::BORDER_CONSTANT, DEFAULT_FILLCOLOR); // æ‰§è¡Œç¼©æ”¾
 		return res;
 	}
 	Mat Transform(Mat input, UINT MODULE) {
@@ -104,7 +111,7 @@ namespace Transforms {
 			Mat binary(input.rows, input.cols, CV_8UC1);
 			for (int h = 0; h < input.rows; ++h) {
 				for (int w = 0; w < input.cols; ++w) {
-					binary.at<uchar>(h, w) = gray_binaryize(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
+					binary.at<uchar>(h, w) = Transforms_Assist::gray_binaryize(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
 				}
 			}
 			return binary;
@@ -130,6 +137,7 @@ namespace Transforms {
 			return res;
 		}
 	}
+
 	Mat Transform(Mat input, std::pair<int, int> output_gray_scale, UINT MODULE = Modules::LINEAR::SCALE_LINEAR) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
 		Mat gray(input.rows, input.cols, CV_8UC1);
@@ -161,26 +169,26 @@ namespace Transforms {
 	}//0-255 to x-y -> q = p/255*(y-x)+x
 	Mat Enhance(Mat input, UINT MODULE) {
 		if (MODULE == Modules::ENHANCE::DHE) {
-			// Èç¹ûÊäÈëÊÇ²ÊÉ«Í¼£¬ÏÈ×ª»Ò¶È£»Èç¹ûÊÇ»Ò¶ÈÍ¼£¬Ö±½ÓÓÃ
+			// å¦‚æœè¾“å…¥æ˜¯å½©è‰²å›¾ï¼Œå…ˆè½¬ç°åº¦ï¼›å¦‚æœæ˜¯ç°åº¦å›¾ï¼Œç›´æ¥ç”¨
 			Mat gray;
 			if (input.channels() == 3)cvtColor(input, gray, COLOR_BGR2GRAY);
 			else if (input.channels() == 1)gray = input;
-			else return Mat(); // ²»Ö§³ÖµÄ¸ñÊ½
+			else return Mat(); // ä¸æ”¯æŒçš„æ ¼å¼
 			const int histSize = 256;
 			int hist[histSize] = { 0 };
 			int total = gray.rows * gray.cols;
-			// Í³¼ÆÖ±·½Í¼
+			// ç»Ÿè®¡ç›´æ–¹å›¾
 			for (int i = 0; i < gray.rows; ++i) {
 				for (int j = 0; j < gray.cols; ++j) {
 					uchar p = gray.at<uchar>(i, j);
 					hist[p]++;
 				}
 			}
-			// ¼ÆËã¸ÅÂÊºÍÀÛ»ı·Ö²¼
+			// è®¡ç®—æ¦‚ç‡å’Œç´¯ç§¯åˆ†å¸ƒ
 			double cdf[histSize] = { 0.0 };
 			cdf[0] = (double)hist[0] / total;
 			for (int i = 1; i < histSize; ++i)cdf[i] = cdf[i - 1] + (double)hist[i] / total;
-			// Ó³ÉäĞÂ»Ò¶ÈÖµ
+			// æ˜ å°„æ–°ç°åº¦å€¼
 			Mat result(gray.size(), CV_8UC1);
 			for (int i = 0; i < gray.rows; ++i) {
 				for (int j = 0; j < gray.cols; ++j) {
@@ -224,6 +232,59 @@ namespace Transforms {
 			Mat dst(gSrc.size(), CV_8UC1);
 			for (int i = 0; i < gSrc.rows; ++i)for (int j = 0; j < gSrc.cols; ++j)dst.at<uchar>(i, j) = map[gSrc.at<uchar>(i, j)];
 			return dst;
+		}
+	}
+	namespace Fourier {
+		Mat spectrumView(Mat freq)
+		{
+			CV_Assert(freq.type() == CV_32FC2);
+			cv::Mat planes[2];
+			cv::split(freq, planes);                 // planes[0]=Re, planes[1]=Im
+
+			cv::Mat mag;
+			cv::magnitude(planes[0], planes[1], mag);   // mag = sqrt(Re^2+Im^2)
+
+			// ä¸­å¿ƒåŒ–ï¼ˆä½é¢‘ç§»ä¸­é—´ï¼‰
+			int cx = mag.cols / 2, cy = mag.rows / 2;
+			cv::Mat tmp;
+			cv::Mat q0(mag, cv::Rect(0, 0, cx, cy));
+			cv::Mat q1(mag, cv::Rect(cx, 0, cx, cy));
+			cv::Mat q2(mag, cv::Rect(0, cy, cx, cy));
+			cv::Mat q3(mag, cv::Rect(cx, cy, cx, cy));
+			q0.copyTo(tmp); q3.copyTo(q0); tmp.copyTo(q3);
+			q1.copyTo(tmp); q2.copyTo(q1); tmp.copyTo(q2);
+
+			cv::log(mag + 1.f, mag);                 // å– log å‹ç¼©åŠ¨æ€èŒƒå›´
+			cv::normalize(mag, mag, 0, 255, cv::NORM_MINMAX);
+			mag.convertTo(mag, CV_8U);
+			return mag;
+		}
+		Mat FFT(Mat gray)
+		{
+			if (gray.channels() != 1)cvtColor(gray, gray, COLOR_BGR2GRAY);
+			int optH = cv::getOptimalDFTSize(gray.rows);
+			int optW = cv::getOptimalDFTSize(gray.cols);
+			cv::Mat padded;
+			cv::copyMakeBorder(gray, padded, 0, optH - gray.rows, 0, optW - gray.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+			padded.convertTo(padded, CV_32F);
+			cv::Mat planes[] = { padded, cv::Mat::zeros(padded.size(), CV_32F) };
+			cv::Mat complexI;
+			cv::merge(planes, 2, complexI);
+			cv::dft(complexI, complexI);                // åŸåœ° FFT
+			return complexI;                            // CV_32FC2
+		}
+		cv::Mat IFFT(Mat freq)
+		{
+			CV_Assert(freq.type() == CV_32FC2);
+			cv::Mat complexI = freq.clone();           
+			cv::idft(complexI, complexI);              
+			// å–å®éƒ¨å¹¶å½’ä¸€åŒ–åˆ° 0-255
+			cv::Mat planes[2];
+			cv::split(complexI, planes);
+			cv::Mat result;
+			cv::normalize(planes[0], result, 0, 255, cv::NORM_MINMAX);
+			result.convertTo(result, CV_8U);
+			return result;                              
 		}
 	}
 }

@@ -13,10 +13,18 @@ namespace Filters {
 				MAX = 1,MIN,MEDIAN,MEAN
 			};
 		}
+		namespace BUTTERWORTH {
+			enum {
+				HIGH = Filters::Modules::SPATIAL::MEAN + 1,LOW
+			};
+		}
 	}
 	static Mat maxFilter(const Mat& src, int k);
 	static Mat minFilter(const Mat& src, int k);
 	static Mat medianFilter(const Mat& src, int k);
 	static Mat meanFilter(const Mat& src, int k);
+	static Mat butterworth_highFilter(const Mat& src, UINT n, double D0);
+	static Mat butterworth_lowFilter(const Mat& src, UINT n, double D0);
 	Mat filterate(Mat input, UINT kernel_size, UINT MODULE);
+	Mat filterate(Mat input, UINT butterworth_level, double butterworth_D0, UINT MODULE);
 }

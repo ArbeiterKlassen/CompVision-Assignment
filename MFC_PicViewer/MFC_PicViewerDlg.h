@@ -10,7 +10,8 @@
 #include "MyFilter.h"
 #include "MyNoise.h"
 #include "MyTransforms.h"
-#include<opencv2/opencv.hpp>
+#include "MyEditControl.h"
+#include <opencv2/opencv.hpp>
 using namespace cv;
 // CMFCPicViewerDlg 对话框
 #define MSG_MENU_ID 1100
@@ -21,7 +22,7 @@ using namespace cv;
 #define MSG_MENU_BINARYIZE 1115
 #define MSG_MENU_UNDO 1116
 #define MSG_MENU_RELOAD 1117
-#define MSG_MENU_ABOUT 1118
+#define MSG_MENU_OPTION 1118
 #define MSG_MENU_SHIFT 1119
 #define MSG_MENU_SCALE 1120
 #define MSG_MENU_ROTATE 1121
@@ -43,6 +44,12 @@ using namespace cv;
 #define MSG_MENU_NOISE_AWGN 1137
 #define MSG_MENU_NOISE_POISSON_GAUSSIAN 1138
 #define MSG_MENU_NOISE_ELD_SFRN 1139
+#define MSG_MENU_SAVE_ANALYZE_TO 1140
+#define MSG_MENU_DFT 1141
+#define MSG_MENU_IDFT 1142
+#define MSG_MENU_FILTER_BUTTERWORTH_LOW 1143
+#define MSG_MENU_FILTER_BUTTERWORTH_HIGH 1144
+
 
 class CMFCPicViewerDlg : public CDialogEx
 {
@@ -72,7 +79,7 @@ public:
 	CRect m_rtBtnFilterate;
 	CRect m_rtBtnNoise;
 	CRect m_rtBtnAnalyze;
-	CRect m_rtBtnHelp;
+	CRect m_rBtnOption;
 	// 生成的消息映射函数
 	CMyStatic m_myText;
 	CMyStatic m_myText_Analyse_Title;
@@ -103,7 +110,7 @@ public:
 	afx_msg void OnMenuBinaryize();
 	afx_msg void OnMenuUndo();
 	afx_msg void OnMenuReload();
-	afx_msg void OnMenuAbout();
+	afx_msg void OnMenuOption();
 	afx_msg void OnMenuShift();
 	afx_msg void OnMenuScale();
 	afx_msg void OnMenuRotate();
@@ -125,4 +132,12 @@ public:
 	afx_msg void OnMenuNoiseAWGN();
 	afx_msg void OnMenuNoisePoissonGaussian();
 	afx_msg void OnMenuNoiseELDSFRN();
+	afx_msg void OnMenuSaveAnalyzeTo();
+	afx_msg void OnMenuDFT();
+	afx_msg void OnMenuIDFT();
+	afx_msg void OnMenuButterworthLowFilter();
+	afx_msg void OnMenuButterworthHighFilter();
+	afx_msg void Info_append(std::string str);
+	afx_msg void CMFCPicViewerDlg::Info_clear();
+	CMyEditControl Info_Bar_Cedit;
 };

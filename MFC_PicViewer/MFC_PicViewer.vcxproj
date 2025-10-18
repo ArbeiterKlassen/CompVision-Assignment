@@ -192,7 +192,9 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="MFC_PicViewer.h" />
     <ClInclude Include="MFC_PicViewerDlg.h" />
+    <ClInclude Include="MFC_PicViewer_OptionDlg.h" />
     <ClInclude Include="MyButton.h" />
+    <ClInclude Include="MyEditControl.h" />
     <ClInclude Include="MyFilter.h" />
     <ClInclude Include="MyImageStatic.h" />
     <ClInclude Include="MyMenu.h" />
@@ -207,7 +209,9 @@
   <ItemGroup>
     <ClCompile Include="MFC_PicViewer.cpp" />
     <ClCompile Include="MFC_PicViewerDlg.cpp" />
+    <ClCompile Include="MFC_PicViewer_OptionDlg.cpp" />
     <ClCompile Include="MyButton.cpp" />
+    <ClCompile Include="MyEditControl.cpp" />
     <ClCompile Include="MyFilter.cpp" />
     <ClCompile Include="MyImageStatic.cpp" />
     <ClCompile Include="MyMenu.cpp" />

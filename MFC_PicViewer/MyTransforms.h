@@ -2,10 +2,16 @@
 #include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
+#include "MyTransforms.h"
 #include <opencv2/opencv.hpp>
 #include <stack>
+#include <cmath>
+#include <complex>
+#include <vector>
 using namespace std;
 using namespace cv;
+using std::complex;
+
 namespace Transforms {
 	namespace Modules {
 		namespace LINEAR {
@@ -28,6 +34,16 @@ namespace Transforms {
 				DHE = Transforms::Modules::BASIC::GRAYIZE + 1,DHS
 			};
 		}
+		namespace FOURIER {
+			enum {
+				DFT = Transforms::Modules::ENHANCE::DHS + 1, IDFT
+			};
+		}
+	}
+	namespace Fourier {
+		Mat FFT(Mat gray);
+		Mat spectrumView(Mat freq);
+		Mat IFFT(Mat gray);
 	}
 	Mat Transform(Mat input, UINT x, UINT y, UINT MODULE);
 	Mat Transform(Mat input, float theta, UINT MODULE);
