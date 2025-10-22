@@ -69,7 +69,9 @@ double noise_ELD_SFRN_sigmaG = 2.0;
 double noise_ELD_SFRN_q = 1.0;
 double butterworth_D0 = 500.0;
 UINT butterworth_level = 1;
-
+double edge_threshold = 100;
+double edge_laplacian_level1_threshold = 100;
+double edge_laplacian_level2_threshold = 10;
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
@@ -172,6 +174,15 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_IDFT, &CMFCPicViewerDlg::OnMenuIDFT)
 	ON_COMMAND(MSG_MENU_FILTER_BUTTERWORTH_LOW, &CMFCPicViewerDlg::OnMenuButterworthLowFilter)
 	ON_COMMAND(MSG_MENU_FILTER_BUTTERWORTH_HIGH, &CMFCPicViewerDlg::OnMenuButterworthHighFilter)
+	ON_COMMAND(MSG_MENU_BINARYIZE_OTSU, &CMFCPicViewerDlg::OnMenuBinaryize_Otsu)
+	ON_COMMAND(MSG_MENU_BINARYIZE_REGIONGROW, &CMFCPicViewerDlg::OnMenuBinaryize_RegionGrow)
+	ON_COMMAND(MSG_MENU_EDGE_ROBERT, &CMFCPicViewerDlg::OnMenuEdgeRobert)
+	ON_COMMAND(MSG_MENU_EDGE_PREWITT, &CMFCPicViewerDlg::OnMenuEdgePrewitt)
+	ON_COMMAND(MSG_MENU_EDGE_SOBEL, &CMFCPicViewerDlg::OnMenuEdgeSobel)
+	ON_COMMAND(MSG_MENU_EDGE_FRIECHEN, &CMFCPicViewerDlg::OnMenuEdgeFrieChen)
+	ON_COMMAND(MSG_MENU_EDGE_LAPLACIAN, &CMFCPicViewerDlg::OnMenuEdgeLaplacian)
+	ON_COMMAND(MSG_MENU_EDGE_LOG, &CMFCPicViewerDlg::OnMenuEdgeLOG)
+	ON_COMMAND(MSG_MENU_EDGE_CANNY, &CMFCPicViewerDlg::OnMenuEdgeCanny)
 END_MESSAGE_MAP()
 
 
@@ -670,6 +681,8 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_GRAYIZE, _T("转换为灰度值"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_BINARYIZE, _T("转换为二值图"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_BINARYIZE_OTSU, _T("转换为二值图(Otsu)"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_BINARYIZE_REGIONGROW, _T("转换为二值图(区域增长)"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SHIFT, _T("平移操作"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_SCALE, _T("放缩操作"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_ROTATE, _T("旋转操作"), _T(""), 0);
@@ -702,6 +715,13 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_DHE, _T("离散直方图均衡化"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_DHS, _T("离散直方图规定化"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_ROBERT, _T("边缘提取（Robert算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_PREWITT, _T("边缘提取（Prewitt算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_SOBEL, _T("边缘提取（Sobel算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_FRIECHEN, _T("边缘提取（Frie-Chen算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_LAPLACIAN, _T("边缘提取（Laplacian算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_LOG, _T("边缘提取（LOG算子）"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_EDGE_CANNY, _T("边缘提取（Canny算子）"), _T(""), 0);
 
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 130, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
@@ -1472,3 +1492,94 @@ void CMFCPicViewerDlg::Info_clear() {
 	Info_Bar_Cedit.SetWindowTextW(_T(""));
 	return;
 }
+void CMFCPicViewerDlg::OnMenuBinaryize_Otsu() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Transform(current_img, Transforms::Modules::DEVIDE::OTSU);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("Otsu二值化完成"));
+}
+void CMFCPicViewerDlg::OnMenuBinaryize_RegionGrow() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Transform(current_img, Transforms::Modules::DEVIDE::REGIONGROW);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("Otsu二值化完成"));
+}
+void CMFCPicViewerDlg::OnMenuEdgeRobert() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::ROBERT);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成"));
+};
+void CMFCPicViewerDlg::OnMenuEdgePrewitt() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::PREWITT);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成"));
+};
+void CMFCPicViewerDlg::OnMenuEdgeSobel() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::SOBEL);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成"));
+};
+void CMFCPicViewerDlg::OnMenuEdgeFrieChen() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::FRIE_CHEN);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成"));
+};
+void CMFCPicViewerDlg::OnMenuEdgeLaplacian() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	img_stack.push(current_img.clone());
+	current_img = Transforms::Enhance(current_img, edge_laplacian_level1_threshold,edge_laplacian_level2_threshold, Transforms::Modules::EDGE::LAPLACIAN);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成"));
+};
+void CMFCPicViewerDlg::OnMenuEdgeLOG() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+}
+void CMFCPicViewerDlg::OnMenuEdgeCanny() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+};

@@ -49,6 +49,15 @@ using namespace cv;
 #define MSG_MENU_IDFT 1142
 #define MSG_MENU_FILTER_BUTTERWORTH_LOW 1143
 #define MSG_MENU_FILTER_BUTTERWORTH_HIGH 1144
+#define MSG_MENU_BINARYIZE_OTSU 1145
+#define MSG_MENU_BINARYIZE_REGIONGROW 1146
+#define MSG_MENU_EDGE_ROBERT 1147
+#define MSG_MENU_EDGE_PREWITT 1148
+#define MSG_MENU_EDGE_SOBEL 1149
+#define MSG_MENU_EDGE_FRIECHEN 1150
+#define MSG_MENU_EDGE_LAPLACIAN 1151
+#define MSG_MENU_EDGE_LOG 1152
+#define MSG_MENU_EDGE_CANNY 1153
 
 
 class CMFCPicViewerDlg : public CDialogEx
@@ -88,6 +97,7 @@ public:
 	CRect m_wndRect;//保存窗口尺寸
 	CImageStatic m_picStatic_Analyze; // 自定义图片
 	CImageStatic m_picStatic;//自定义图片
+	CMyEditControl Info_Bar_Cedit;
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
@@ -139,5 +149,13 @@ public:
 	afx_msg void OnMenuButterworthHighFilter();
 	afx_msg void Info_append(std::string str);
 	afx_msg void CMFCPicViewerDlg::Info_clear();
-	CMyEditControl Info_Bar_Cedit;
+	afx_msg void OnMenuBinaryize_Otsu();
+	afx_msg void OnMenuBinaryize_RegionGrow();
+	afx_msg void OnMenuEdgeRobert();
+	afx_msg void OnMenuEdgePrewitt();
+	afx_msg void OnMenuEdgeSobel();
+	afx_msg void OnMenuEdgeFrieChen();
+	afx_msg void OnMenuEdgeLaplacian();
+	afx_msg void OnMenuEdgeCanny();
+	afx_msg void OnMenuEdgeLOG();
 };

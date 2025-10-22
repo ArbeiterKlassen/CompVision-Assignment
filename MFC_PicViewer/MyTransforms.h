@@ -39,6 +39,16 @@ namespace Transforms {
 				DFT = Transforms::Modules::ENHANCE::DHS + 1, IDFT
 			};
 		}
+		namespace DEVIDE {
+			enum {
+				OTSU = Transforms::Modules::FOURIER::IDFT + 1,REGIONGROW
+			};
+		}
+		namespace EDGE {
+			enum {
+				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN, CANNY
+			};
+		}
 	}
 	namespace Fourier {
 		Mat FFT(Mat gray);
@@ -53,4 +63,6 @@ namespace Transforms {
 	Mat Transform(Mat input, std::vector<std::pair<int, int>> operate_ranges, std::vector<std::pair<int, int>> output_gray_scales, UINT MODULE);
 	Mat Enhance(Mat input, UINT MODULE);
 	Mat Enhance(Mat input, Mat ref, UINT MODULE);
+	Mat Enhance(Mat input, double argument, UINT MODULE);
+	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE);
 }

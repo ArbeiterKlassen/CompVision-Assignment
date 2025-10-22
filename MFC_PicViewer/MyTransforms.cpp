@@ -83,7 +83,10 @@ namespace Transforms {
 			gray.convertTo(out, CV_8UC1);
 			return out;
 		}
-
+		else if (MODULE == Modules::DEVIDE::REGIONGROW) {
+			Mat gray(input.rows, input.cols, CV_8UC1);
+			return gray;
+		}
 	}
 	Mat Transform(Mat input, float scalex, float scaley, UINT MODULE = Modules::BASIC::SCALE) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
@@ -135,6 +138,57 @@ namespace Transforms {
 				}
 			}
 			return res;
+		}
+		else if (MODULE == Modules::DEVIDE::OTSU) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			Mat gray = Mat::zeros(_input.size(), CV_8UC1);
+			int n[256] = { 0 };
+			long gn[256] = { 0 };
+			double mk[256] = { 0.0 };
+			double pa[256] = { 0.0 };
+			long N = _input.rows * _input.cols;
+			double sigma2 = 0.0;  // 改为初始化为0
+			double k = 128;       // 设置默认阈值
+			double mg = 0.0;
+			double eps = 1e-10;
+			for (int h = 0; h < _input.rows; ++h) {
+				for (int w = 0; w < _input.cols; ++w) {
+					n[_input.at<uchar>(h, w)] += 1;
+					mg += _input.at<uchar>(h, w);
+				}
+			}
+			mg /= N;
+			// 计算累积分布
+			gn[0] = n[0];
+			pa[0] = (double)n[0] / N;
+			mk[0] = 0;
+			for (int i = 1; i < 256; i++) {
+				gn[i] = gn[i - 1] + n[i];
+				pa[i] = pa[i - 1] + (double)n[i] / N;
+				mk[i] = mk[i - 1] + i * (double)n[i] / N;
+			}
+			// 寻找最佳阈值
+			bool found = false;
+			for (int i = 1; i < 255; i++) {  // 避免边界值
+				if (pa[i] <= eps || pa[i] >= 1.0 - eps)continue;
+				double denominator = pa[i] * (1 - pa[i]);
+				if (denominator < eps)continue;
+				double tmp = pow(mg * pa[i] - mk[i], 2) / denominator;
+				if (tmp > sigma2) {
+					sigma2 = tmp;
+					k = i;
+					found = true;
+				}
+			}
+			if (!found)k = 128;
+			for (int h = 0; h < _input.rows; h++) {
+				for (int w = 0; w < _input.cols; w++) {
+					gray.at<uchar>(h, w) = (_input.at<uchar>(h, w) <= k) ? 0 : 255;
+				}
+			}
+			return gray;
 		}
 	}
 
@@ -231,6 +285,139 @@ namespace Transforms {
 			}
 			Mat dst(gSrc.size(), CV_8UC1);
 			for (int i = 0; i < gSrc.rows; ++i)for (int j = 0; j < gSrc.cols; ++j)dst.at<uchar>(i, j) = map[gSrc.at<uchar>(i, j)];
+			return dst;
+		}
+	}
+	Mat Enhance(Mat input, double argument, UINT MODULE) {
+		if (MODULE == Modules::EDGE::ROBERT) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+
+			for (int i = 0; i < rows - 1; ++i)
+			{
+				const uchar* curr = _input.ptr<uchar>(i);
+				const uchar* next = _input.ptr<uchar>(i + 1);
+				uchar* out = dst.ptr<uchar>(i);
+
+				for (int j = 0; j < cols - 1; ++j)
+				{
+					int gx = next[j + 1] - curr[j];
+					int gy = next[j] - curr[j + 1];
+
+					float mag = std::sqrt(float(gx * gx + gy * gy));
+					out[j] = mag >= argument ? 255 : 0;
+				}
+			}
+			return dst;
+		}
+		else if (MODULE == Modules::EDGE::PREWITT) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			double gx, gy;
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					gx = _input.at<uchar>(i + 1, j - 1) - _input.at<uchar>(i - 1, j - 1)
+						+ _input.at<uchar>(i + 1, j) - _input.at<uchar>(i - 1, j)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i - 1, j + 1);
+					gy = _input.at<uchar>(i - 1, j + 1) - _input.at<uchar>(i - 1, j - 1)
+						+ _input.at<uchar>(i, j + 1) - _input.at<uchar>(i, j - 1)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i + 1, j - 1);
+					if (abs(sqrt(gx * gx + gy * gy)) > argument)dst.at<uchar>(i, j) = 255;
+				}
+			}
+			return dst;
+		}
+		else if (MODULE == Modules::EDGE::SOBEL) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			double gx, gy;
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					gx = _input.at<uchar>(i + 1, j - 1) - _input.at<uchar>(i - 1, j - 1)
+						+ 2*_input.at<uchar>(i + 1, j) - 2*_input.at<uchar>(i - 1, j)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i - 1, j + 1);
+					gy = _input.at<uchar>(i - 1, j + 1) - _input.at<uchar>(i - 1, j - 1)
+						+ 2*_input.at<uchar>(i, j + 1) - 2*_input.at<uchar>(i, j - 1)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i + 1, j - 1);
+					if (abs(sqrt(gx * gx + gy * gy)) > argument)dst.at<uchar>(i, j) = 255;
+				}
+			}
+			return dst;
+		}
+		else if (MODULE == Modules::EDGE::FRIE_CHEN) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			double gx, gy;
+			double sqrt2 = sqrt(2);
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					gx = _input.at<uchar>(i + 1, j - 1) - _input.at<uchar>(i - 1, j - 1)
+						+  sqrt(2)* _input.at<uchar>(i + 1, j) - sqrt(2) * _input.at<uchar>(i - 1, j)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i - 1, j + 1);
+					gy = _input.at<uchar>(i - 1, j + 1) - _input.at<uchar>(i - 1, j - 1)
+						+ sqrt(2) * _input.at<uchar>(i, j + 1) - sqrt(2) * _input.at<uchar>(i, j - 1)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i + 1, j - 1);
+					if (abs(sqrt(gx * gx + gy * gy)) > argument)dst.at<uchar>(i, j) = 255;
+				}
+			}
+			return dst;
+		}
+	};
+	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE){
+		if (MODULE == Modules::EDGE::LAPLACIAN) {
+			Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			double Lij, gx, gy, th;
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					Lij = _input.at<uchar>(i + 1, j)
+						+ _input.at<uchar>(i - 1, j)
+						+ _input.at<uchar>(i, j + 1)
+						+ _input.at<uchar>(i, j - 1)
+						- 4 * _input.at<uchar>(i, j);
+					gx = _input.at<uchar>(i + 1, j - 1) - _input.at<uchar>(i - 1, j - 1)
+						+ 2 * _input.at<uchar>(i + 1, j) - 2 * _input.at<uchar>(i - 1, j)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i - 1, j + 1);
+					gy = _input.at<uchar>(i - 1, j + 1) - _input.at<uchar>(i - 1, j - 1)
+						+ 2 * _input.at<uchar>(i, j + 1) - 2 * _input.at<uchar>(i, j - 1)
+						+ _input.at<uchar>(i + 1, j + 1) - _input.at<uchar>(i + 1, j - 1);
+					th = abs(sqrt(gx * gx + gy * gy));
+					if(th>argument1 && Lij < argument2)dst.at<uchar>(i, j) = 255;
+				}
+			}
 			return dst;
 		}
 	}
