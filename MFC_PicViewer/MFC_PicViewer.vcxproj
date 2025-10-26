@@ -197,6 +197,7 @@
     <ClInclude Include="MyEditControl.h" />
     <ClInclude Include="MyFilter.h" />
     <ClInclude Include="MyImageStatic.h" />
+    <ClInclude Include="MyINIReader.h" />
     <ClInclude Include="MyMenu.h" />
     <ClInclude Include="MyNoise.h" />
     <ClInclude Include="MyOpenCV.h" />
@@ -227,9 +228,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="properties.ini" />
     <None Include="res\MFCPicViewer.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="res\icon_minimiz.png" />
+    <Image Include="res\icon_popup_off.png" />
+    <Image Include="res\icon_square.png" />
     <Image Include="res\MFC_PicViewer.ico" />
   </ItemGroup>
   <ItemGroup>

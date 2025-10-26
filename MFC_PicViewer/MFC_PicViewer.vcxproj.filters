@@ -63,6 +63,9 @@
     <ClInclude Include="MyEditControl.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MyINIReader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MFC_PicViewer.cpp">
@@ -109,9 +112,21 @@
     <None Include="res\MFCPicViewer.rc2">
       <Filter>资源文件</Filter>
     </None>
+    <None Include="properties.ini">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\MFC_PicViewer.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\icon_minimiz.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\icon_popup_off.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\icon_square.png">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

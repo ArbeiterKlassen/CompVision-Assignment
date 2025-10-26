@@ -17,6 +17,7 @@
 #include "MyFilter.h"
 #include "MyNoise.h"
 #include "MyEditControl.h"
+#include "MyINIReader.h"
 //STL头
 #include <opencv2/opencv.hpp>
 #include <stack>
@@ -24,6 +25,7 @@
 #include <algorithm>
 #include <complex>
 #include <vector>
+#include <map>
 
 //窗口头
 #include "MFC_PicViewer_OptionDlg.h"
@@ -69,9 +71,20 @@ double noise_ELD_SFRN_sigmaG = 2.0;
 double noise_ELD_SFRN_q = 1.0;
 double butterworth_D0 = 500.0;
 UINT butterworth_level = 1;
+
+double default_edge_threshold = 100;
+double default_edge_laplacian_level1_threshold = 100;
+double default_edge_laplacian_level2_threshold = 10;
+double default_edge_canny_low_threshold = 5;
+double default_edge_canny_high_threshold = 150;
+
 double edge_threshold = 100;
 double edge_laplacian_level1_threshold = 100;
 double edge_laplacian_level2_threshold = 10;
+double edge_canny_low_threshold = 5;
+double edge_canny_high_threshold = 150;
+
+bool auto_estimate_threshold = 1;
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
@@ -183,6 +196,7 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_EDGE_LAPLACIAN, &CMFCPicViewerDlg::OnMenuEdgeLaplacian)
 	ON_COMMAND(MSG_MENU_EDGE_LOG, &CMFCPicViewerDlg::OnMenuEdgeLOG)
 	ON_COMMAND(MSG_MENU_EDGE_CANNY, &CMFCPicViewerDlg::OnMenuEdgeCanny)
+	ON_COMMAND(MSG_MENU_LOAD_PROPERTIES, &CMFCPicViewerDlg::OnMenuLoadProperties)
 END_MESSAGE_MAP()
 
 
@@ -235,6 +249,40 @@ BOOL CMFCPicViewerDlg::OnInitDialog()
 	m_btnMin.SetImagePath(_T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"));
 	m_btnMin.InitMyButton(rtBtnClo.left, 5, 16, 16, true);
 	//dwStyle = (dwStyle | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+	INIParser parser;
+	if (parser.readFile("properties.ini")) {
+		Info_append("Properties read successfully");
+		scale_x = stof(parser.getValue("transform","scale_x"));
+		scale_y = stof(parser.getValue("transform", "scale_y"));
+		rotate_theta = stof(parser.getValue("transform", "rotate_theta"));
+		shift_x = stoi(parser.getValue("transform", "shift_x"));
+		shift_y = stoi(parser.getValue("transform", "shift_y"));
+		logK = stof(parser.getValue("transform", "logK"));
+		expK = stof(parser.getValue("transform", "expK"));
+		output_grayscale.first = stoi(parser.getValue("transform", "grayscale_l"));
+		output_grayscale.second = stoi(parser.getValue("transform", "grayscale_r"));
+		filter_kernel = stoi(parser.getValue("filter", "filter_kernel"));
+		noise_AWGN_sigma = stof(parser.getValue("noise","noise_AWGN_sigma"));
+		noise_Poisson_Gaussian_gain = stod(parser.getValue("noise", "noise_Poisson_Gaussian_gain"));
+		noise_Poisson_Gaussian_sigma = stod(parser.getValue("noise", "noise_Poisson_Gaussian_sigma"));
+		noise_ELD_SFRN_alpha = stod(parser.getValue("noise", "noise_ELD_SFRN_alpha"));
+		noise_ELD_SFRN_sigmaT = stod(parser.getValue("noise", "noise_ELD_SFRN_sigmaT"));
+		noise_ELD_SFRN_sigmaG = stod(parser.getValue("noise", "noise_ELD_SFRN_sigmaG"));
+		noise_ELD_SFRN_q = stod(parser.getValue("noise", "noise_ELD_SFRN_q"));
+		butterworth_D0 = stof(parser.getValue("filter", "butterworth_D0"));
+		butterworth_level = stoi(parser.getValue("filter", "butterworth_level"));
+		default_edge_threshold = stod(parser.getValue("edge", "default_edge_threshold"));
+		default_edge_laplacian_level1_threshold = stod(parser.getValue("edge", "default_edge_laplacian_level1_threshold"));
+		default_edge_laplacian_level2_threshold = stod(parser.getValue("edge", "default_edge_laplacian_level2_threshold"));
+		default_edge_canny_low_threshold = stod(parser.getValue("edge", "default_edge_canny_low_threshold"));
+		default_edge_canny_high_threshold = stod(parser.getValue("edge", "default_edge_canny_high_threshold"));
+		auto_estimate_threshold = (bool)stoi(parser.getValue("edge", "if_auto_estimate_threshold"));
+		edge_threshold = default_edge_threshold;
+		edge_laplacian_level1_threshold = default_edge_laplacian_level1_threshold;
+		edge_laplacian_level2_threshold = default_edge_laplacian_level2_threshold;
+		edge_canny_low_threshold = default_edge_canny_low_threshold;
+		edge_canny_high_threshold = default_edge_canny_high_threshold;
+	}
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -809,7 +857,7 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.SetBorderColor(RGB(45, 51, 60));
 		m_MenuEx.SetMenuWidth(130);
 		m_MenuEx.InstallHook(theApp.m_hInstance);
-
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_LOAD_PROPERTIES, _T("参数载入"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_OPTION, _T("参数配置"), _T(""), 0);
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 370, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
@@ -1521,9 +1569,10 @@ void CMFCPicViewerDlg::OnMenuEdgeRobert() {
 		return;
 	}
 	img_stack.push(current_img.clone());
+	if(auto_estimate_threshold)edge_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
 	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::ROBERT);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	Info_append(("边缘提取完成"));
+	Info_append(("边缘提取完成: 阈值为" + to_string(edge_threshold)));
 };
 void CMFCPicViewerDlg::OnMenuEdgePrewitt() {
 	if (img_stack.empty() || current_img.empty())
@@ -1532,9 +1581,10 @@ void CMFCPicViewerDlg::OnMenuEdgePrewitt() {
 		return;
 	}
 	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold)edge_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
 	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::PREWITT);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	Info_append(("边缘提取完成"));
+	Info_append(("边缘提取完成: 阈值为" + to_string(edge_threshold)));
 };
 void CMFCPicViewerDlg::OnMenuEdgeSobel() {
 	if (img_stack.empty() || current_img.empty())
@@ -1543,9 +1593,10 @@ void CMFCPicViewerDlg::OnMenuEdgeSobel() {
 		return;
 	}
 	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold)edge_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
 	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::SOBEL);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	Info_append(("边缘提取完成"));
+	Info_append(("边缘提取完成: 阈值为" + to_string(edge_threshold)));
 };
 void CMFCPicViewerDlg::OnMenuEdgeFrieChen() {
 	if (img_stack.empty() || current_img.empty())
@@ -1554,9 +1605,10 @@ void CMFCPicViewerDlg::OnMenuEdgeFrieChen() {
 		return;
 	}
 	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold)edge_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
 	current_img = Transforms::Enhance(current_img, edge_threshold, Transforms::Modules::EDGE::FRIE_CHEN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	Info_append(("边缘提取完成"));
+	Info_append(("边缘提取完成: 阈值为" + to_string(edge_threshold)));
 };
 void CMFCPicViewerDlg::OnMenuEdgeLaplacian() {
 	if (img_stack.empty() || current_img.empty())
@@ -1565,9 +1617,10 @@ void CMFCPicViewerDlg::OnMenuEdgeLaplacian() {
 		return;
 	}
 	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold)edge_laplacian_level1_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
 	current_img = Transforms::Enhance(current_img, edge_laplacian_level1_threshold,edge_laplacian_level2_threshold, Transforms::Modules::EDGE::LAPLACIAN);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
-	Info_append(("边缘提取完成"));
+	Info_append(("边缘提取完成: 阈值为 一阶：" + to_string(edge_laplacian_level1_threshold) + "，二阶："+to_string(edge_laplacian_level2_threshold)));
 };
 void CMFCPicViewerDlg::OnMenuEdgeLOG() {
 	if (img_stack.empty() || current_img.empty())
@@ -1575,6 +1628,11 @@ void CMFCPicViewerDlg::OnMenuEdgeLOG() {
 		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
 		return;
 	}
+	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold)edge_laplacian_level1_threshold = Transforms::Threshold_Estimate::adaptiveThresholdByEdgeDensity(current_img);
+	current_img = Transforms::Enhance(current_img, edge_threshold, edge_laplacian_level2_threshold, Transforms::Modules::EDGE::LOG);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成: 阈值为" + to_string(edge_threshold)));
 }
 void CMFCPicViewerDlg::OnMenuEdgeCanny() {
 	if (img_stack.empty() || current_img.empty())
@@ -1582,4 +1640,60 @@ void CMFCPicViewerDlg::OnMenuEdgeCanny() {
 		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
 		return;
 	}
+	img_stack.push(current_img.clone());
+	if (auto_estimate_threshold) {
+		Transforms::Threshold_Estimate::CannyThresholds th = Transforms::Threshold_Estimate::estimateCannyThresholds(current_img);
+		edge_canny_low_threshold = th.low;
+		edge_canny_high_threshold = th.high;
+	}
+	current_img = Transforms::Enhance(current_img, edge_canny_low_threshold, edge_canny_high_threshold, Transforms::Modules::EDGE::CANNY);
+	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
+	Info_append(("边缘提取完成: 阈值为 左值：" + to_string(edge_canny_low_threshold) + "，右值：" + to_string(edge_canny_high_threshold)));
 };
+void CMFCPicViewerDlg::OnMenuLoadProperties() {
+	INIParser parser;
+	std::map<std::string, std::map<std::string, std::string>> res;
+	if (parser.readFile("properties.ini")) {
+		Info_append("Properties read successfully");
+		scale_x = stof(parser.getValue("transform", "scale_x"));
+		scale_y = stof(parser.getValue("transform", "scale_y"));
+		rotate_theta = stof(parser.getValue("transform", "rotate_theta"));
+		shift_x = stoi(parser.getValue("transform", "shift_x"));
+		shift_y = stoi(parser.getValue("transform", "shift_y"));
+		logK = stof(parser.getValue("transform", "logK"));
+		expK = stof(parser.getValue("transform", "expK"));
+		output_grayscale.first = stoi(parser.getValue("transform", "grayscale_l"));
+		output_grayscale.second = stoi(parser.getValue("transform", "grayscale_r"));
+		filter_kernel = stoi(parser.getValue("filter", "filter_kernel"));
+		noise_AWGN_sigma = stof(parser.getValue("noise", "noise_AWGN_sigma"));
+		noise_Poisson_Gaussian_gain = stod(parser.getValue("noise", "noise_Poisson_Gaussian_gain"));
+		noise_Poisson_Gaussian_sigma = stod(parser.getValue("noise", "noise_Poisson_Gaussian_sigma"));
+		noise_ELD_SFRN_alpha = stod(parser.getValue("noise", "noise_ELD_SFRN_alpha"));
+		noise_ELD_SFRN_sigmaT = stod(parser.getValue("noise", "noise_ELD_SFRN_sigmaT"));
+		noise_ELD_SFRN_sigmaG = stod(parser.getValue("noise", "noise_ELD_SFRN_sigmaG"));
+		noise_ELD_SFRN_q = stod(parser.getValue("noise", "noise_ELD_SFRN_q"));
+		butterworth_D0 = stof(parser.getValue("filter", "butterworth_D0"));
+		butterworth_level = stoi(parser.getValue("filter", "butterworth_level"));
+		default_edge_threshold = stod(parser.getValue("edge", "default_edge_threshold"));
+		default_edge_laplacian_level1_threshold = stod(parser.getValue("edge", "default_edge_laplacian_level1_threshold"));
+		default_edge_laplacian_level2_threshold = stod(parser.getValue("edge", "default_edge_laplacian_level2_threshold"));
+		default_edge_canny_low_threshold = stod(parser.getValue("edge", "default_edge_canny_low_threshold"));
+		default_edge_canny_high_threshold = stod(parser.getValue("edge", "default_edge_canny_high_threshold"));
+		auto_estimate_threshold = (bool)stoi(parser.getValue("edge", "if_auto_estimate_threshold"));
+		edge_threshold = default_edge_threshold;
+		edge_laplacian_level1_threshold = default_edge_laplacian_level1_threshold;
+		edge_laplacian_level2_threshold = default_edge_laplacian_level2_threshold;
+		edge_canny_low_threshold = default_edge_canny_low_threshold;
+		edge_canny_high_threshold = default_edge_canny_high_threshold;
+		res = parser.getAll();
+		Info_append("sections: " + to_string(res.size()));
+		for (std::map<std::string, std::map<std::string, std::string>>::iterator it = res.begin(); it != res.end(); ++it) {
+			std::string sec = it->first;
+			Info_append("[" + sec + "]");
+			std::map<std::string, std::string> comp = it->second;
+			for (std::map<std::string, std::string>::iterator jt = comp.begin(); jt != comp.end(); ++jt) {
+				Info_append(jt->first + " " + jt->second);
+			}
+		}
+	}
+}

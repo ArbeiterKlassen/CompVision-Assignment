@@ -11,6 +11,7 @@
 #include "MyNoise.h"
 #include "MyTransforms.h"
 #include "MyEditControl.h"
+#include "MyINIReader.h"
 #include <opencv2/opencv.hpp>
 using namespace cv;
 // CMFCPicViewerDlg 对话框
@@ -58,6 +59,7 @@ using namespace cv;
 #define MSG_MENU_EDGE_LAPLACIAN 1151
 #define MSG_MENU_EDGE_LOG 1152
 #define MSG_MENU_EDGE_CANNY 1153
+#define MSG_MENU_LOAD_PROPERTIES 1154
 
 
 class CMFCPicViewerDlg : public CDialogEx
@@ -156,6 +158,7 @@ public:
 	afx_msg void OnMenuEdgeSobel();
 	afx_msg void OnMenuEdgeFrieChen();
 	afx_msg void OnMenuEdgeLaplacian();
-	afx_msg void OnMenuEdgeCanny();
 	afx_msg void OnMenuEdgeLOG();
+	afx_msg void OnMenuEdgeCanny();
+	afx_msg void OnMenuLoadProperties();
 };

@@ -46,9 +46,22 @@ namespace Transforms {
 		}
 		namespace EDGE {
 			enum {
-				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN, CANNY
+				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN ,LOG ,CANNY
 			};
 		}
+	}
+	namespace Threshold_Estimate {
+		struct CannyThresholds
+		{
+			UINT low;
+			UINT high;
+			CannyThresholds(UINT _l, UINT _h) {
+				low = _l;
+				high = _h;
+			}
+		};
+		CannyThresholds estimateCannyThresholds(Mat gray);
+		UINT adaptiveThresholdByEdgeDensity(Mat src);
 	}
 	namespace Fourier {
 		Mat FFT(Mat gray);

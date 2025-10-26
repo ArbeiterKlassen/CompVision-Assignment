@@ -420,6 +420,213 @@ namespace Transforms {
 			}
 			return dst;
 		}
+		else if (MODULE == Modules::EDGE::LOG) {
+			cv::Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			const int ksize = 5;
+			const int half = ksize / 2;
+			const short logKernel[5][5] = {
+				{  0,   0,  -1,  0,  0},
+				{  0,  -1,  -2, -1,  0},
+				{ -1,  -2,  16, -2, -1},
+				{  0,  -1,  -2, -1,  0},
+				{  0,   0,  -1,  0,  0}
+			};
+			for (int i = half; i < rows - half; ++i)
+			{
+				for (int j = half; j < cols - half; ++j)
+				{
+					int sum = 0;
+					for (int m = -half; m <= half; ++m)
+						for (int n = -half; n <= half; ++n)
+							sum += _input.at<uchar>(i + m, j + n) * logKernel[m + half][n + half];
+					if (std::abs(sum) > argument1) dst.at<uchar>(i, j) = 255;  // argument1 当阈值用
+				}
+			}
+			return dst;
+		}
+		else if (MODULE == Modules::EDGE::CANNY) {
+			cv::Mat _input;
+			input.copyTo(_input);
+			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+			const int rows = _input.rows;
+			const int cols = _input.cols;
+			const short gauss[5][5] = {
+				{ 1,  4,  7,  4, 1},
+				{ 4, 16, 26, 16, 4},
+				{ 7, 26, 41, 26, 7},
+				{ 4, 16, 26, 16, 4},
+				{ 1,  4,  7,  4, 1}
+			};
+			cv::Mat blurred(rows, cols, CV_16SC1);   // 16 位存中间结果
+			for (int i = 2; i < rows - 2; ++i)
+			{
+				for (int j = 2; j < cols - 2; ++j)
+				{
+					int sum = 0;
+					for (int m = -2; m <= 2; ++m)
+						for (int n = -2; n <= 2; ++n)
+							sum += _input.at<uchar>(i + m, j + n) * gauss[m + 2][n + 2];
+					blurred.at<short>(i, j) = sum >> 8;   // 除以 273
+				}
+			}
+			cv::Mat mag(rows, cols, CV_32FC1);
+			cv::Mat ang(rows, cols, CV_32FC1);
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					short gx = blurred.at<short>(i - 1, j + 1) - blurred.at<short>(i - 1, j - 1)
+						+ 2 * blurred.at<short>(i, j + 1) - 2 * blurred.at<short>(i, j - 1)
+						+ blurred.at<short>(i + 1, j + 1) - blurred.at<short>(i + 1, j - 1);
+
+					short gy = blurred.at<short>(i - 1, j - 1) - blurred.at<short>(i + 1, j - 1)
+						+ 2 * blurred.at<short>(i - 1, j) - 2 * blurred.at<short>(i + 1, j)
+						+ blurred.at<short>(i - 1, j + 1) - blurred.at<short>(i + 1, j + 1);
+
+					mag.at<float>(i, j) = std::sqrt(float(gx) * gx + float(gy) * gy);
+					ang.at<float>(i, j) = std::atan2(float(gy), float(gx));   // 弧度 [-π,π]
+				}
+			}
+			cv::Mat nms = cv::Mat::zeros(rows, cols, CV_32FC1);
+			for (int i = 1; i < rows - 1; ++i)
+			{
+				for (int j = 1; j < cols - 1; ++j)
+				{
+					float m = mag.at<float>(i, j);
+					if (m == 0) continue;
+
+					float theta = ang.at<float>(i, j);
+					/* 把方向量化到 0° 45° 90° 135° */
+					int d = int(std::round(theta * 4 / CV_PI) + 4) % 4;
+					float m1 = 0, m2 = 0;
+					switch (d)
+					{
+					case 0:  m1 = mag.at<float>(i, j - 1); m2 = mag.at<float>(i, j + 1); break;
+					case 1:  m1 = mag.at<float>(i - 1, j + 1); m2 = mag.at<float>(i + 1, j - 1); break;
+					case 2:  m1 = mag.at<float>(i - 1, j);   m2 = mag.at<float>(i + 1, j);   break;
+					case 3:  m1 = mag.at<float>(i - 1, j - 1); m2 = mag.at<float>(i + 1, j + 1); break;
+					}
+					if (m >= m1 && m >= m2)
+						nms.at<float>(i, j) = m;
+				}
+			}
+			std::vector<cv::Point> strong;
+			for (int i = 0; i < rows; ++i)
+			{
+				for (int j = 0; j < cols; ++j)
+				{
+					float v = nms.at<float>(i, j);
+					if (v >= argument2)               // 强边缘
+					{
+						dst.at<uchar>(i, j) = 255;
+						strong.emplace_back(i, j);
+					}
+				}
+			}
+
+			const int dx8[8] = { -1,-1, 0, 1, 1, 1, 0,-1 };
+			const int dy8[8] = { 0, 1, 1, 1, 0,-1,-1,-1 };
+			while (!strong.empty())
+			{
+				cv::Point p = strong.back();
+				strong.pop_back();
+				for (int k = 0; k < 8; ++k)
+				{
+					int ni = p.y + dy8[k];
+					int nj = p.x + dx8[k];
+					if (ni < 0 || ni >= rows || nj < 0 || nj >= cols) continue;
+					if (dst.at<uchar>(ni, nj) == 0 && nms.at<float>(ni, nj) >= argument1)
+					{
+						dst.at<uchar>(ni, nj) = 255;
+						strong.emplace_back(ni, nj);
+					}
+				}
+			}
+			return dst;
+		}
+	}
+	namespace Threshold_Estimate {
+		CannyThresholds estimateCannyThresholds(Mat src)
+		{
+			cv::Mat _input;
+			src.copyTo(_input);
+			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+			cv::Mat gx, gy;
+			cv::Sobel(src, gx, CV_32F, 1, 0, 3);
+			cv::Sobel(src, gy, CV_32F, 0, 1, 3);
+			cv::magnitude(gx, gy, gx);          // 复用 gx 存幅值
+			cv::Mat mag8u;
+			double minVal, maxVal;
+			cv::minMaxLoc(gx, &minVal, &maxVal);
+			double scale = (maxVal > minVal) ? 255.0 / (maxVal - minVal) : 0;
+			gx.convertTo(mag8u, CV_8U, scale, -minVal * scale);
+			cv::Mat hist;
+			int    channels[] = { 0 };                     // 单通道，通道下标 0
+			int    histSize[] = { 256 };
+			float  range[] = { 0.0f, 256.0f };          // 左闭右开
+			const float* histRange[] = { range };          // 注意：指针数组
+
+			cv::calcHist(&mag8u, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
+			float* h = hist.ptr<float>(0);
+			int total = mag8u.total();
+			float sum = 0, sumB = 0;
+			for (int i = 0; i < 256; ++i) sum += i * h[i];
+			float wB = 0, maxVar = 0;
+			int thHigh = 0;
+			for (int t = 0; t < 256; ++t)
+			{
+				wB += h[t];
+				if (wB == 0) continue;
+				float wF = total - wB;
+				if (wF == 0) break;
+				sumB += t * h[t];
+				float mB = sumB / wB;
+				float mF = (sum - sumB) / wF;
+				float varBetween = wB * wF * (mB - mF) * (mB - mF);
+				if (varBetween > maxVar)
+				{
+					maxVar = varBetween;
+					thHigh = t;
+				}
+			}
+			unsigned char high = static_cast<unsigned char>(thHigh);
+			unsigned char low = static_cast<unsigned char>(std::lround(high * 0.4));
+			return { low, high };
+		}
+		UINT adaptiveThresholdByEdgeDensity(Mat src)
+		{
+			cv::Mat _input;
+			src.copyTo(_input);
+			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+			cv::Mat gx, gy;
+			cv::Sobel(_input, gx, CV_32F, 1, 0, 3);
+			cv::Sobel(_input, gy, CV_32F, 0, 1, 3);
+			cv::Mat grad;
+			cv::magnitude(gx, gy, grad);
+			double T = cv::mean(grad)[0];
+			const double Tmin = 5.0, Tmax = 300.0;
+			const int maxIter = 20;
+			const double targetMin = 0.05, targetMax = 0.20;
+			const double stepUp = 1.2, stepDown = 0.8;
+			int total = grad.total();
+			for (int iter = 0; iter < maxIter; ++iter)
+			{
+				cv::Mat mask;
+				cv::compare(grad, T, mask, cv::CMP_GT);  // 安全生成 mask
+				int edgeCnt = cv::countNonZero(mask);
+				double ratio = static_cast<double>(edgeCnt) / total;
+				if (ratio >= targetMin && ratio <= targetMax) break;
+				if (ratio > targetMax)T = std::min(T * stepUp, Tmax);
+				else T = std::max(T * stepDown, Tmin);
+			}
+			return static_cast<unsigned int>(std::lround(std::min(std::max(T, 0.0), 255.0)));
+		}
 	}
 	namespace Fourier {
 		Mat spectrumView(Mat freq)
@@ -430,8 +637,6 @@ namespace Transforms {
 
 			cv::Mat mag;
 			cv::magnitude(planes[0], planes[1], mag);   // mag = sqrt(Re^2+Im^2)
-
-			// 中心化（低频移中间）
 			int cx = mag.cols / 2, cy = mag.rows / 2;
 			cv::Mat tmp;
 			cv::Mat q0(mag, cv::Rect(0, 0, cx, cy));
