@@ -289,15 +289,14 @@ namespace Transforms {
 		}
 	}
 	Mat Enhance(Mat input, double argument, UINT MODULE) {
+		Mat _input;
+		input.copyTo(_input);
+		if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
+		cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+		const int rows = _input.rows;
+		const int cols = _input.cols;
+		double gx, gy;
 		if (MODULE == Modules::EDGE::ROBERT) {
-			Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-
-			const int rows = _input.rows;
-			const int cols = _input.cols;
-
 			for (int i = 0; i < rows - 1; ++i)
 			{
 				const uchar* curr = _input.ptr<uchar>(i);
@@ -316,14 +315,6 @@ namespace Transforms {
 			return dst;
 		}
 		else if (MODULE == Modules::EDGE::PREWITT) {
-			Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-
-			const int rows = _input.rows;
-			const int cols = _input.cols;
-			double gx, gy;
 			for (int i = 1; i < rows - 1; ++i)
 			{
 				for (int j = 1; j < cols - 1; ++j)
@@ -340,14 +331,6 @@ namespace Transforms {
 			return dst;
 		}
 		else if (MODULE == Modules::EDGE::SOBEL) {
-			Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-
-			const int rows = _input.rows;
-			const int cols = _input.cols;
-			double gx, gy;
 			for (int i = 1; i < rows - 1; ++i)
 			{
 				for (int j = 1; j < cols - 1; ++j)
@@ -364,14 +347,6 @@ namespace Transforms {
 			return dst;
 		}
 		else if (MODULE == Modules::EDGE::FRIE_CHEN) {
-			Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-
-			const int rows = _input.rows;
-			const int cols = _input.cols;
-			double gx, gy;
 			double sqrt2 = sqrt(2);
 			for (int i = 1; i < rows - 1; ++i)
 			{
@@ -390,14 +365,13 @@ namespace Transforms {
 		}
 	};
 	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE){
+		cv::Mat _input;
+		input.copyTo(_input);
+		if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+		cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
+		const int rows = _input.rows;
+		const int cols = _input.cols;
 		if (MODULE == Modules::EDGE::LAPLACIAN) {
-			Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3)cvtColor(_input, _input, COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-
-			const int rows = _input.rows;
-			const int cols = _input.cols;
 			double Lij, gx, gy, th;
 			for (int i = 1; i < rows - 1; ++i)
 			{
@@ -421,12 +395,6 @@ namespace Transforms {
 			return dst;
 		}
 		else if (MODULE == Modules::EDGE::LOG) {
-			cv::Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-			const int rows = _input.rows;
-			const int cols = _input.cols;
 			const int ksize = 5;
 			const int half = ksize / 2;
 			const short logKernel[5][5] = {
@@ -441,21 +409,13 @@ namespace Transforms {
 				for (int j = half; j < cols - half; ++j)
 				{
 					int sum = 0;
-					for (int m = -half; m <= half; ++m)
-						for (int n = -half; n <= half; ++n)
-							sum += _input.at<uchar>(i + m, j + n) * logKernel[m + half][n + half];
+					for (int m = -half; m <= half; ++m) for (int n = -half; n <= half; ++n) sum += _input.at<uchar>(i + m, j + n) * logKernel[m + half][n + half];
 					if (std::abs(sum) > argument1) dst.at<uchar>(i, j) = 255;  // argument1 当阈值用
 				}
 			}
 			return dst;
 		}
 		else if (MODULE == Modules::EDGE::CANNY) {
-			cv::Mat _input;
-			input.copyTo(_input);
-			if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
-			cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC1);
-			const int rows = _input.rows;
-			const int cols = _input.cols;
 			const short gauss[5][5] = {
 				{ 1,  4,  7,  4, 1},
 				{ 4, 16, 26, 16, 4},
@@ -469,9 +429,7 @@ namespace Transforms {
 				for (int j = 2; j < cols - 2; ++j)
 				{
 					int sum = 0;
-					for (int m = -2; m <= 2; ++m)
-						for (int n = -2; n <= 2; ++n)
-							sum += _input.at<uchar>(i + m, j + n) * gauss[m + 2][n + 2];
+					for (int m = -2; m <= 2; ++m) for (int n = -2; n <= 2; ++n) sum += _input.at<uchar>(i + m, j + n) * gauss[m + 2][n + 2];
 					blurred.at<short>(i, j) = sum >> 8;   // 除以 273
 				}
 			}
@@ -512,8 +470,7 @@ namespace Transforms {
 					case 2:  m1 = mag.at<float>(i - 1, j);   m2 = mag.at<float>(i + 1, j);   break;
 					case 3:  m1 = mag.at<float>(i - 1, j - 1); m2 = mag.at<float>(i + 1, j + 1); break;
 					}
-					if (m >= m1 && m >= m2)
-						nms.at<float>(i, j) = m;
+					if (m >= m1 && m >= m2) nms.at<float>(i, j) = m;
 				}
 			}
 			std::vector<cv::Point> strong;
@@ -548,8 +505,72 @@ namespace Transforms {
 					}
 				}
 			}
-			return dst;
 		}
+		return dst;
+	}
+
+	Mat Watershed(Mat input, UINT kernel_size, UINT MODULE) {
+		cv::Mat _input;
+		input.copyTo(_input);
+		if (_input.channels() == 3) cvtColor(_input, _input, cv::COLOR_BGR2GRAY);
+		cv::Mat dst = cv::Mat::zeros(_input.size(), CV_8UC3);
+		if (kernel_size < 3)kernel_size = 3;
+		else if (kernel_size % 2 == 0)kernel_size += 1;
+		Mat k = getStructuringElement(MORPH_RECT, Size(kernel_size, kernel_size));
+		Mat fgMark;
+		switch (MODULE)
+		{
+		case Transforms::Modules::EDGE::WATERSHED_DISTANCE:
+		{
+			threshold(_input, _input, 0, 255, THRESH_BINARY | THRESH_OTSU);
+			morphologyEx(_input, _input, MORPH_OPEN, k, Point(-1, -1), 2);
+			distanceTransform(_input, _input, DIST_L2, DIST_MASK_5);
+			normalize(_input, _input, 0, 1.0, NORM_MINMAX);
+			double th = 0.5;
+			threshold(_input, fgMark, th, 255, THRESH_BINARY);
+			fgMark.convertTo(fgMark, CV_8UC1);
+			break;
+		}
+
+		case Transforms::Modules::EDGE::WATERSHED_MORPH_GRAD:
+		{
+			morphologyEx(_input, _input, MORPH_GRADIENT, k);
+			threshold(_input, _input, 0, 255, THRESH_BINARY | THRESH_OTSU);
+			morphologyEx(_input, fgMark, MORPH_CLOSE, k, Point(-1, -1), 2);
+			break;
+		}
+
+		case Transforms::Modules::EDGE::WATERSHED_CANNY:
+		{
+			Canny(_input, _input, 50, 150);
+			dilate(_input, fgMark, k, Point(-1, -1), 3);
+			fgMark = 255 - fgMark;
+			threshold(fgMark, fgMark, 200, 255, THRESH_BINARY);
+			break;
+		}
+		}
+		Mat bgMark;
+		dilate(fgMark, bgMark, k, Point(-1, -1), 3);
+		threshold(bgMark, bgMark, 1, 128, THRESH_BINARY_INV);
+		Mat markers;
+		add(fgMark, bgMark, markers);
+		markers.convertTo(markers, CV_32SC1);
+		markers.setTo(1, markers == 255);
+		markers.setTo(2, markers == 128);
+		Mat wsInput = input.clone();
+		watershed(wsInput, markers);
+		for (int i = 0; i < markers.rows; ++i)
+		{
+			for (int j = 0; j < markers.cols; ++j)
+			{
+				int lbl = markers.at<int>(i, j);
+				if (lbl == -1)dst.at<Vec3b>(i, j) = Vec3b(0, 0, 255);
+				else if (lbl == 1)dst.at<Vec3b>(i, j) = Vec3b(0, 255, 0);
+				else if (lbl == 2)dst.at<Vec3b>(i, j) = Vec3b(255, 0, 0);
+				else dst.at<Vec3b>(i, j) = Vec3b(0, 0, 0);
+			}
+		}
+		return dst;
 	}
 	namespace Threshold_Estimate {
 		CannyThresholds estimateCannyThresholds(Mat src)

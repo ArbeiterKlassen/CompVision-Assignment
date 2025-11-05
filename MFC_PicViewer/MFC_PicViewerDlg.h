@@ -60,6 +60,7 @@ using namespace cv;
 #define MSG_MENU_EDGE_LOG 1152
 #define MSG_MENU_EDGE_CANNY 1153
 #define MSG_MENU_LOAD_PROPERTIES 1154
+#define MSG_MENU_EDGE_WATERSHED 1155
 
 
 class CMFCPicViewerDlg : public CDialogEx
@@ -161,4 +162,5 @@ public:
 	afx_msg void OnMenuEdgeLOG();
 	afx_msg void OnMenuEdgeCanny();
 	afx_msg void OnMenuLoadProperties();
+	afx_msg void OnMenuEdgeWatershed();
 };

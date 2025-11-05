@@ -41,12 +41,12 @@ namespace Transforms {
 		}
 		namespace DEVIDE {
 			enum {
-				OTSU = Transforms::Modules::FOURIER::IDFT + 1,REGIONGROW
+				OTSU = Transforms::Modules::FOURIER::IDFT + 1, REGIONGROW
 			};
 		}
 		namespace EDGE {
 			enum {
-				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN ,LOG ,CANNY
+				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN ,LOG ,CANNY, WATERSHED_DISTANCE, WATERSHED_MORPH_GRAD, WATERSHED_CANNY
 			};
 		}
 	}
@@ -78,4 +78,5 @@ namespace Transforms {
 	Mat Enhance(Mat input, Mat ref, UINT MODULE);
 	Mat Enhance(Mat input, double argument, UINT MODULE);
 	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE);
+	Mat Watershed(Mat input, UINT kernel_size, UINT MODULE);
 }
