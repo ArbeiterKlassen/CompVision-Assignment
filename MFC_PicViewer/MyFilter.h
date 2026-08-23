@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
@@ -10,12 +10,12 @@ namespace Filters {
 	namespace Modules {
 		namespace SPATIAL {
 			enum {
-				MAX = 1,MIN,MEDIAN,MEAN
+				MAX = 1, MIN, MEDIAN, MEAN, BILATERAL
 			};
 		}
 		namespace BUTTERWORTH {
 			enum {
-				HIGH = Filters::Modules::SPATIAL::MEAN + 1,LOW
+				HIGH = Filters::Modules::SPATIAL::BILATERAL + 1, LOW
 			};
 		}
 	}
@@ -25,6 +25,7 @@ namespace Filters {
 	static Mat meanFilter(const Mat& src, int k);
 	static Mat butterworth_highFilter(const Mat& src, UINT n, double D0);
 	static Mat butterworth_lowFilter(const Mat& src, UINT n, double D0);
-	Mat filterate(Mat input, UINT kernel_size, UINT MODULE);
-	Mat filterate(Mat input, UINT butterworth_level, double butterworth_D0, UINT MODULE);
-}
+		Mat filterate(Mat input, UINT kernel_size, UINT MODULE);
+		Mat filterate(Mat input, UINT butterworth_level, double butterworth_D0, UINT MODULE);
+		Mat filterate(Mat input, int d, double sigmaColor, double sigmaSpace, UINT MODULE);
+	}

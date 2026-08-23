@@ -1,16 +1,121 @@
 # CompVision-Assignment
-计算机视觉基础（数字图像处理）课程作业程序设计
-### 如何使用
-在程序同目录下的properties.ini修改配置文件
-### 包含功能
-1. 主流图像格式（PNG、JPEG、TIFF、BMP）读取
-2. 图像缩放、旋转、放缩基本变换
-3. 图像线性变换、非线性对数、指数、分段线性变换
-4. 图像傅里叶变换和逆变换
-5. 图像三色、灰度直方图统计
-6. 图像灰度化、二值化
-7. 离散直方图均衡化和离散直方图规定化增强
-8. 加性高斯白噪声、泊松高斯混合噪声、信号相关-无关联合噪声添加
-9. 图像最大值、最小值、中值、均值滤波
-10. 傅里叶变换的巴特沃斯滤波
-11. 图像边缘提取算法
+
+基于 **MFC + OpenCV** 的计算机视觉（数字图像处理）课程作业演示程序。程序采用自绘深色主题界面，通过顶部弹出菜单调用 40+ 种图像处理算法，支持撤销 / 重做、参数配置热加载。
+
+## 功能特性
+
+### 文件
+- 打开 / 保存图像到指定目录 / 另存为 / 保存分析结果
+- 撤销 / 重做 / 恢复原始图像
+
+### 基本变换
+- 灰度化、二值化（固定阈值 / Otsu 自动阈值）
+- 平移、缩放、旋转
+- 灰度反转、色彩反转
+- 线性灰度变换、分段线性灰度变换
+- 对数变换、指数变换、Gamma 校正
+
+### 直方图增强
+- 离散直方图均衡化（DHE）
+- 离散直方图规定化（DHS，需选择参考图）
+- CLAHE 局部直方图均衡化
+
+### 滤波
+- 邻域最大值 / 最小值 / 中值 / 均值滤波（可配置核大小）
+- 双边滤波（保边去噪）
+- 巴特沃斯低通 / 高通滤波（频域，需先执行傅里叶变换）
+
+### 形态学
+- 腐蚀 / 膨胀 / 开运算 / 闭运算
+
+### 噪声
+- 加性高斯白噪声（AWGN）
+- 泊松-高斯混合噪声
+- 信号相关联合噪声（ELD-SFRN）
+
+### 边缘检测与分割
+- Robert / Prewitt / Sobel / Frie-Chen 一阶算子
+- Laplacian / LOG / Canny 二阶算子（Canny 为手写实现）
+- 分水岭分割（距离变换 / 形态学梯度 / Canny 三种模式）
+- 阈值自动估计（边缘密度自适应、Canny 双阈值 Otsu 估计）
+
+### 检测
+- Hough 直线检测
+- Harris 角点检测
+
+### 频域
+- 离散傅里叶变换（DFT）/ 逆变换（IDFT）
+
+### 分析
+- 彩色直方图分析
+- 灰度直方图分析（含均值 / 方差 / 信息熵统计）
+
+## 项目结构
+
+```
+MFC_PicViewer/
+├── MFC_PicViewer.cpp / .h            # 应用入口 (CWinApp)
+├── MFC_PicViewerDlg.cpp / .h         # 主对话框：UI 布局、菜单、命令分发
+├── MFC_PicViewer_OptionDlg.cpp / .h  # 参数配置窗口（占位）
+├── ImageDocument.cpp / .h            # 图像状态：原始/当前/分析/参考图 + 撤销重做双栈
+├── MyTransforms.cpp / .h             # 变换 / 直方图增强 / 边缘检测 / 分水岭 / DFT / Hough / Harris
+├── MyFilter.cpp / .h                 # 空间域滤波 + 巴特沃斯频域滤波 + 双边滤波
+├── MyMorphology.cpp / .h             # 形态学：腐蚀 / 膨胀 / 开 / 闭
+├── MyNoise.cpp / .h                  # AWGN / 泊松-高斯 / ELD-SFRN 噪声
+├── MyOpenCV.cpp / .h                 # 仿射变换封装
+├── MyMenu.cpp / .h                   # 自绘弹出菜单
+├── MyButton.cpp / .h                 # 自绘三态按钮
+├── MyImageStatic.cpp / .h            # 图像显示控件（缩放/拖拽）
+├── MyEditControl.cpp / .h            # 信息栏编辑框
+├── MyStatic.cpp / .h                 # 自绘静态文本
+├── MyINIReader.h                     # 轻量 INI 解析器（UTF-8 BOM 兼容）
+├── properties.ini                    # 算法参数配置
+└── res/                              # 图标与按钮图片
+```
+
+## 构建
+
+- 环境：Windows + Visual Studio 2022（v143）、OpenCV 4.x（本机路径 `E:\OpenCV\opencv\build`，链接 `opencv_world4110[d].lib`）
+- 打开 `MFC_PicViewer.sln`，选择 x64 + Debug / Release 直接生成
+- 运行前确保 OpenCV DLL 在系统 PATH 中，或拷贝到 exe 同目录
+
+## 使用
+
+- 顶部菜单栏：**文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置**
+- 点击菜单栏文字弹出对应功能菜单
+- 修改 `properties.ini` 后，通过「配置 → 参数载入」热加载，无需重新编译
+- 底部信息栏输出每次操作的日志与统计结果
+
+## 配置参数（properties.ini）
+
+| 分组 | 参数 | 默认值 | 说明 |
+|------|------|--------|------|
+| transform | scale_x / scale_y | 2.0 / 4.0 | 缩放系数 |
+| transform | rotate_theta | 90.0 | 旋转角度（度） |
+| transform | shift_x / shift_y | 50 / 50 | 平移像素 |
+| transform | logK / expK / gamma | 2.0 / 0.5 / 1.0 | 对数 / 指数 / Gamma 变换参数 |
+| transform | grayscale_l / grayscale_r | 100 / 155 | 线性灰度变换输出区间 |
+| filter | filter_kernel | 7 | 空间域滤波核大小（奇数） |
+| filter | butterworth_D0 / butterworth_level | 500 / 1 | 巴特沃斯截止频率 / 阶数 |
+| filter | bilateral_d / sigma_color / sigma_space | 9 / 75 / 75 | 双边滤波参数 |
+| morphology | morphology_kernel | 3 | 形态学核大小 |
+| enhance | clahe_clip_limit / clahe_tile_size | 2.0 / 8 | CLAHE 对比度限制 / 分块尺寸 |
+| noise | noise_AWGN_sigma | 25 | AWGN 标准差 |
+| noise | noise_Poisson_Gaussian_gain / sigma | 4 / 5 | 泊松增益 / 高斯标准差 |
+| noise | noise_ELD_SFRN_alpha / sigmaT / sigmaG / q | 4 / 3 / 2 / 1 | 信号相关噪声参数 |
+| edge | if_auto_estimate_threshold | 1 | 是否自动估计边缘阈值 |
+| edge | default_edge_* | 见 ini | 各边缘算子默认阈值 |
+| detect | hough_threshold / min_line_length / max_line_gap | 100 / 50 / 10 | Hough 直线检测参数 |
+| detect | harris_threshold / k | 0.01 / 0.04 | Harris 角点相对阈值 / 响应系数 |
+
+## 架构说明（2026-08 重构后）
+
+1. **ImageDocument 数据层**：原始图 / 当前图 / 分析图 / 参考图与文件路径统一管理，撤销 / 重做采用双栈实现，取代原全局变量。
+2. **图像操作注册表**：每个算法以 `ImageOpDef{ id, run, log, needsFreqDomain, toBgr }` 注册，由 `RunOperation()` 统一执行「检查 → 计算 → 类型转换 → 入栈 → 显示 → 日志」。新增算法只需注册条目 + 添加菜单项。
+3. **声明式菜单表**：7 个弹出菜单收敛为 `kMenuBars` 数据表 + 一个 `ShowPopupMenu()`。
+4. **AppParams 参数结构体**：算法参数统一收敛，由 `properties.ini` 驱动。
+
+## 已知说明
+
+- 「区域增长」为占位实现，点击无效果（算法分支未实现，重构后安全跳过）。
+- 「另存为」的 JPEG 分支沿用历史行为，写入上次「保存到」推导的目录而非用户所选路径（历史遗留 bug，未修改）。

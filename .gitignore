@@ -1,0 +1,8 @@
+# 重构备份目录（原始项目副本）
+backups/
+
+# 编译产物
+x64/
+Debug/
+Release/
+*.user

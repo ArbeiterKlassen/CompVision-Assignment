@@ -142,7 +142,7 @@ void MFC_PicViewer_OptionDlg::OnPaint()
 		CRect tmprect;
 		GetClientRect(&rect);
 		//rect.bottom = 60;
-		rect.bottom *= 0.1;
+		rect.bottom = static_cast<LONG>(rect.bottom * 0.1);
 		/*int nCount = 165 - 115 + 186 - 158 + 190 - 115;
 		int nIncrecs = (rect.right - rect.left) / nCount;*/
 		dc.FillSolidRect(rect, RGB(45, 51, 60));
@@ -165,7 +165,7 @@ LRESULT MFC_PicViewer_OptionDlg::OnNcHitTest(CPoint point)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 
-	UINT nHitTest = CDialogEx::OnNcHitTest(point);
+	UINT nHitTest = static_cast<UINT>(CDialogEx::OnNcHitTest(point));
 	CRect rect;
 	GetClientRect(&rect);
 	rect.bottom = 70;

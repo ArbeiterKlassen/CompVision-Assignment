@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
 #include "MyFilter.h"
@@ -79,46 +79,46 @@ namespace Filters {
     }
     static Mat butterworth_highFilter(const Mat& src, UINT n, double D0)
     {
-        Mat dst(src.size(), src.type());      // ´´½¨Óë src Í¬³ß´ç¡¢Í¬ÀàĞÍµÄÄ¿±ê¾ØÕó
-        int cx = src.cols / 2;                // ÆµÆ×ÖĞĞÄÁĞ×ø±ê
-        int cy = src.rows / 2;                // ÆµÆ×ÖĞĞÄĞĞ×ø±ê
-        for (int i = 0; i < src.rows; ++i)    // ±éÀúÃ¿Ò»ĞĞ
+        Mat dst(src.size(), src.type());      // åˆ›å»ºä¸ src åŒå°ºå¯¸ã€åŒç±»å‹çš„ç›®æ ‡çŸ©é˜µ
+        int cx = src.cols / 2;                // é¢‘è°±ä¸­å¿ƒåˆ—åæ ‡
+        int cy = src.rows / 2;                // é¢‘è°±ä¸­å¿ƒè¡Œåæ ‡
+        for (int i = 0; i < src.rows; ++i)    // éå†æ¯ä¸€è¡Œ
         {
-            for (int j = 0; j < src.cols; ++j) // ±éÀúÃ¿Ò»ÁĞ
+            for (int j = 0; j < src.cols; ++j) // éå†æ¯ä¸€åˆ—
             {
-                int u = j - cx;               // Ë®Æ½ÆµÂÊ£ºÏà¶ÔÓÚÖĞĞÄµÄÆ«ÒÆ
-                int v = i - cy;               // ´¹Ö±ÆµÂÊ£ºÏà¶ÔÓÚÖĞĞÄµÄÆ«ÒÆ
-                float D_uv = std::sqrt(u * u + v * v); // µ±Ç°µãµ½ÆµÆ×ÖĞĞÄµÄ¾àÀë
-                // °ÍÌØÎÖË¹¸ßÍ¨ÂË²¨Æ÷´«µİº¯Êı£ºH(u,v) = 1 - 1/(1+(D/D0)^2n)
-                float h = 1.0f - 1.0f / (1 + std::pow(D_uv / D0, 2 * n));
-                // ½«¸´ÊıÆµÆ×µÄÊµ²¿¡¢Ğé²¿Í¬Ê±³ËÒÔÂË²¨Æ÷ÔöÒæ
+                int u = j - cx;               // æ°´å¹³é¢‘ç‡ï¼šç›¸å¯¹äºä¸­å¿ƒçš„åç§»
+                int v = i - cy;               // å‚ç›´é¢‘ç‡ï¼šç›¸å¯¹äºä¸­å¿ƒçš„åç§»
+                float D_uv = static_cast<float>(std::sqrt(u * u + v * v)); // å½“å‰ç‚¹åˆ°é¢‘è°±ä¸­å¿ƒçš„è·ç¦»
+                // å·´ç‰¹æ²ƒæ–¯é«˜é€šæ»¤æ³¢å™¨ä¼ é€’å‡½æ•°ï¼šH(u,v) = 1 - 1/(1+(D/D0)^2n)
+                float h = 1.0f - 1.0f / static_cast<float>(1 + std::pow(D_uv / D0, 2 * n));
+                // å°†å¤æ•°é¢‘è°±çš„å®éƒ¨ã€è™šéƒ¨åŒæ—¶ä¹˜ä»¥æ»¤æ³¢å™¨å¢ç›Š
                 dst.at<Vec2f>(i, j)[0] = src.at<Vec2f>(i, j)[0] * h;
                 dst.at<Vec2f>(i, j)[1] = src.at<Vec2f>(i, j)[1] * h;
             }
         }
-        return dst;                           // ·µ»ØÂË²¨ºóµÄÆµÓò¾ØÕó
+        return dst;                           // è¿”å›æ»¤æ³¢åçš„é¢‘åŸŸçŸ©é˜µ
     }
     static Mat butterworth_lowFilter(const Mat& src, UINT n, double D0)
     {
-        Mat dst(src.size(), src.type());      // ´´½¨Óë src Í¬³ß´ç¡¢Í¬ÀàĞÍµÄÄ¿±ê¾ØÕó
+        Mat dst(src.size(), src.type());      // åˆ›å»ºä¸ src åŒå°ºå¯¸ã€åŒç±»å‹çš„ç›®æ ‡çŸ©é˜µ
 
-        int cx = src.cols / 2;                // ÆµÆ×ÖĞĞÄÁĞ×ø±ê
-        int cy = src.rows / 2;                // ÆµÆ×ÖĞĞÄĞĞ×ø±ê
-        for (int i = 0; i < src.rows; ++i)    // ±éÀúÃ¿Ò»ĞĞ
+        int cx = src.cols / 2;                // é¢‘è°±ä¸­å¿ƒåˆ—åæ ‡
+        int cy = src.rows / 2;                // é¢‘è°±ä¸­å¿ƒè¡Œåæ ‡
+        for (int i = 0; i < src.rows; ++i)    // éå†æ¯ä¸€è¡Œ
         {
-            for (int j = 0; j < src.cols; ++j) // ±éÀúÃ¿Ò»ÁĞ
+            for (int j = 0; j < src.cols; ++j) // éå†æ¯ä¸€åˆ—
             {
-                int u = j - cx;               // Ë®Æ½ÆµÂÊ£ºÏà¶ÔÓÚÖĞĞÄµÄÆ«ÒÆ
-                int v = i - cy;               // ´¹Ö±ÆµÂÊ£ºÏà¶ÔÓÚÖĞĞÄµÄÆ«ÒÆ
-                float D_uv = std::sqrt(u * u + v * v); // µ±Ç°µãµ½ÆµÆ×ÖĞĞÄµÄ¾àÀë
-                // °ÍÌØÎÖË¹µÍÍ¨ÂË²¨Æ÷´«µİº¯Êı£ºH(u,v) = 1/(1+(D/D0)^2n)
-                float h = 1.0f / (1 + std::pow(D_uv / D0, 2 * n));
-                // ½«¸´ÊıÆµÆ×µÄÊµ²¿¡¢Ğé²¿Í¬Ê±³ËÒÔÂË²¨Æ÷ÔöÒæ
+                int u = j - cx;               // æ°´å¹³é¢‘ç‡ï¼šç›¸å¯¹äºä¸­å¿ƒçš„åç§»
+                int v = i - cy;               // å‚ç›´é¢‘ç‡ï¼šç›¸å¯¹äºä¸­å¿ƒçš„åç§»
+                float D_uv = static_cast<float>(std::sqrt(u * u + v * v)); // å½“å‰ç‚¹åˆ°é¢‘è°±ä¸­å¿ƒçš„è·ç¦»
+                // å·´ç‰¹æ²ƒæ–¯ä½é€šæ»¤æ³¢å™¨ä¼ é€’å‡½æ•°ï¼šH(u,v) = 1/(1+(D/D0)^2n)
+                float h = 1.0f / static_cast<float>(1 + std::pow(D_uv / D0, 2 * n));
+                // å°†å¤æ•°é¢‘è°±çš„å®éƒ¨ã€è™šéƒ¨åŒæ—¶ä¹˜ä»¥æ»¤æ³¢å™¨å¢ç›Š
                 dst.at<Vec2f>(i, j)[0] = src.at<Vec2f>(i, j)[0] * h;
                 dst.at<Vec2f>(i, j)[1] = src.at<Vec2f>(i, j)[1] * h;
             }
         }
-        return dst;                           // ·µ»ØÂË²¨ºóµÄÆµÓò¾ØÕó
+        return dst;                           // è¿”å›æ»¤æ³¢åçš„é¢‘åŸŸçŸ©é˜µ
     }
     Mat filterate(Mat input, UINT kernel_size, UINT MODULE) {
         if (kernel_size < 3 || kernel_size % 2 == 0) return Mat();
@@ -141,5 +141,18 @@ namespace Filters {
         case Modules::BUTTERWORTH::LOW: return butterworth_lowFilter(input,butterworth_level, butterworth_D0);
         default: return Mat();
         }
+    };
+    Mat filterate(Mat input, int d, double sigmaColor, double sigmaSpace, UINT MODULE) {
+        if (MODULE == Modules::SPATIAL::BILATERAL) {
+            Mat gray;
+            if (input.channels() == 3) cvtColor(input, gray, COLOR_BGR2GRAY);
+            else if (input.channels() == 1) gray = input;
+            else return Mat();
+            if (d <= 0) d = 5;
+            Mat dst;
+            bilateralFilter(gray, dst, d, sigmaColor, sigmaSpace);
+            return dst;
+        }
+        return Mat();   // ä¸æ”¯æŒçš„æ»¤æ³¢æ¨¡å—
     };
 }
