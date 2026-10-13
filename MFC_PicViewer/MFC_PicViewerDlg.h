@@ -165,4 +165,5 @@ private:
 	void ApplyRoundedCorners();     // 窗口圆角：Win11 用 DWM 圆角，其余系统回退到区域裁剪
 	void ApplyRoundedRegion();      // 回退方案：用窗口区域裁出圆角
 	bool m_rounded_by_region = false;   // 是否走了区域裁剪方案
+	cv::Mat m_main_display;         // 主显示区当前显示的内容（保存图像时以它为准）
 };

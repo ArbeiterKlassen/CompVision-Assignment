@@ -740,6 +740,10 @@ HBRUSH CMFCPicViewerDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 void CMFCPicViewerDlg::CVMat_to_Pic(const cv::Mat& img, UINT nID)
 {
+	// 主显示区显示的是哪个图像就记录哪个：
+	// 特征匹配结果是"两图并排+连线"图，它不替换当前工作图像，
+	// 保存图像（保存到/另存为）时以显示内容为准，避免存成原图。
+	if (nID == IDC_STATIC_PIC)img.copyTo(m_main_display);
 	Mat _img;
 	img.copyTo(_img);
 	if (_img.type() == CV_32FC2) {
@@ -922,7 +926,8 @@ void CMFCPicViewerDlg::OnMenuSaveTo()
 	m_doc.setSavePath(strFolder + _T("result") + strExt);
 
 	// 3. OpenCV 保存
-	const cv::Mat& current = m_doc.current();
+	// 保存主显示区当前显示的图像（特征匹配结果是并排连线图，不替换当前工作图像）
+	const cv::Mat& current = m_main_display.empty() ? m_doc.current() : m_main_display;
 	bool ok = false;
 	if (strExt.CompareNoCase(_T(".jpg")) == 0 || strExt.CompareNoCase(_T(".jpeg")) == 0)
 		if (current.type() == CV_32FC2) {
@@ -979,7 +984,7 @@ void CMFCPicViewerDlg::OnMenuSaveAsTo()
 	ext.MakeLower();
 
 	// 保存参数
-	const cv::Mat& current = m_doc.current();
+	const cv::Mat& current = m_main_display.empty() ? m_doc.current() : m_main_display;
 	bool ok = false;
 	if (ext == _T(".jpg") || ext == _T(".jpeg"))
 	{
@@ -1703,6 +1708,7 @@ void CMFCPicViewerDlg::RunFeatureMatch(UINT MODULE, CString method_name)
 	Info_append("RANSAC 单应性内点数：" + std::to_string(res.inliers));
 	if (res.scale < 1.0)
 		Info_append("图像已按 " + std::to_string(res.scale) + " 等比缩小后匹配");
+	Info_append("匹配结果已显示在主显示区，可用“文件 - 保存图像到 / 另存为”导出");
 }
 
 void CMFCPicViewerDlg::OnMenuMatchORB()
