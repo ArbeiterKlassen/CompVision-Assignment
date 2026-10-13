@@ -27,6 +27,9 @@
     <ClInclude Include="Resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ImageDocument.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -34,6 +37,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="MyMenu.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyMorphology.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="MyFeatureMatch.h">
@@ -74,6 +80,9 @@
     <ClCompile Include="MFC_PicViewer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ImageDocument.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="MFC_PicViewerDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -84,6 +93,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyMenu.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyMorphology.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyFeatureMatch.cpp">

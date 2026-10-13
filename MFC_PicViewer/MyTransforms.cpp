@@ -38,9 +38,9 @@ namespace Transforms {
 		if (MODULE == Modules::BASIC::ROTATE) {
 			int w = input.size().width;               // 原图宽
 			int h = input.size().height;              // 原图高
-			int new_w = ceil(abs(w * cos(argument)) + abs(h * sin(argument))); // 计算旋转后所需宽
-			int new_h = ceil(abs(w * sin(argument)) + abs(h * cos(argument))); // 计算旋转后所需高
-			Point2f rotate_center = Point2f(w / 2.0, h / 2.0); // 旋转中心取图像中心
+			int new_w = static_cast<int>(ceil(abs(w * cos(argument)) + abs(h * sin(argument)))); // 计算旋转后所需宽
+			int new_h = static_cast<int>(ceil(abs(w * sin(argument)) + abs(h * cos(argument)))); // 计算旋转后所需高
+			Point2f rotate_center = Point2f(static_cast<float>(w / 2.0), static_cast<float>(h / 2.0)); // 旋转中心取图像中心
 			Mat rotMat = cv::getRotationMatrix2D(rotate_center, argument, 1.0); // 获取旋转矩阵
 			rotMat.at<double>(0, 2) += (new_w - w) / 2.0; // 补平移量使图像居中
 			rotMat.at<double>(1, 2) += (new_h - h) / 2.0;
@@ -83,17 +83,30 @@ namespace Transforms {
 			gray.convertTo(out, CV_8UC1);
 			return out;
 		}
+		else if (MODULE == Modules::NONLINEAR::GAMMA) {
+			double gamma = (argument > 0) ? argument : 1.0;   // 防御非法参数
+			Mat gray(input.rows, input.cols, CV_8UC1);
+			for (int h = 0; h < input.rows; ++h) {
+				for (int w = 0; w < input.cols; ++w) {
+					uchar p = (uchar)(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
+					// 输出 = 255 * (p/255)^gamma；gamma>1 变暗，gamma<1 变亮
+					gray.at<uchar>(h, w) = saturate_cast<uchar>(255.0 * std::pow(p / 255.0, gamma));
+				}
+			}
+			return gray;
+		}
 		else if (MODULE == Modules::DEVIDE::REGIONGROW) {
 			Mat gray(input.rows, input.cols, CV_8UC1);
 			return gray;
 		}
+		return Mat();   // 不支持的变换模块
 	}
 	Mat Transform(Mat input, float scalex, float scaley, UINT MODULE = Modules::BASIC::SCALE) {
 		if (input.channels() == 1)cvtColor(input, input, COLOR_GRAY2BGR);
 		Mat transform = (cv::Mat_<double>(2, 3) << scalex, 0, 0, 0, scaley, 0); // 缩放矩阵
 		Size res_size = input.size();             // 先复制原尺寸
-		res_size.width = ceil(res_size.width * scalex); // 计算缩放后宽
-		res_size.height = ceil(res_size.height * scaley); // 计算缩放后高
+		res_size.width = static_cast<int>(ceil(res_size.width * scalex)); // 计算缩放后宽
+		res_size.height = static_cast<int>(ceil(res_size.height * scaley)); // 计算缩放后高
 		Mat res;
 		input.copyTo(res);
 		warpAffine(res, res, transform, res_size, DEFAULT_FLAGMODE, cv::BORDER_CONSTANT, DEFAULT_FILLCOLOR); // 执行缩放
@@ -114,7 +127,7 @@ namespace Transforms {
 			Mat binary(input.rows, input.cols, CV_8UC1);
 			for (int h = 0; h < input.rows; ++h) {
 				for (int w = 0; w < input.cols; ++w) {
-					binary.at<uchar>(h, w) = Transforms_Assist::gray_binaryize(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]);
+					binary.at<uchar>(h, w) = Transforms_Assist::gray_binaryize(static_cast<float>(0.30 * input.at<Vec3b>(h, w)[2] + 0.59 * input.at<Vec3b>(h, w)[1] + 0.11 * input.at<Vec3b>(h, w)[0]));
 				}
 			}
 			return binary;
@@ -190,6 +203,7 @@ namespace Transforms {
 			}
 			return gray;
 		}
+		return Mat();   // 不支持的变换模块
 	}
 
 	Mat Transform(Mat input, std::pair<int, int> output_gray_scale, UINT MODULE = Modules::LINEAR::SCALE_LINEAR) {
@@ -252,6 +266,7 @@ namespace Transforms {
 			}
 			return result;
 		}
+		return Mat();   // 不支持的增强模块
 	}
 	Mat Enhance(Mat input, Mat ref, UINT MODULE) {
 		if (MODULE == Modules::ENHANCE::DHS) {
@@ -265,7 +280,7 @@ namespace Transforms {
 			auto makeCDF = [](const Mat& gray, double cdf[256]) {
 				int hist[256] = { 0 };
 				for (int i = 0; i < gray.rows; ++i)for (int j = 0; j < gray.cols; ++j)hist[gray.at<uchar>(i, j)]++;
-				const int total = gray.total();
+				const int total = static_cast<int>(gray.total());
 				cdf[0] = double(hist[0]) / total;
 				for (int i = 1; i < 256; ++i)cdf[i] = cdf[i - 1] + double(hist[i]) / total;
 			};
@@ -287,6 +302,22 @@ namespace Transforms {
 			for (int i = 0; i < gSrc.rows; ++i)for (int j = 0; j < gSrc.cols; ++j)dst.at<uchar>(i, j) = map[gSrc.at<uchar>(i, j)];
 			return dst;
 		}
+		return Mat();   // 不支持的增强模块
+	}
+	Mat Enhance(Mat input, double clipLimit, int tileSize, UINT MODULE) {
+		if (MODULE == Modules::ENHANCE::CLAHE) {
+			Mat gray;
+			if (input.channels() == 3) cvtColor(input, gray, COLOR_BGR2GRAY);
+			else if (input.channels() == 1) gray = input;
+			else return Mat();
+			if (clipLimit <= 0) clipLimit = 2.0;
+			if (tileSize < 1) tileSize = 8;
+			Ptr<CLAHE> clahe = cv::createCLAHE(clipLimit, Size(tileSize, tileSize));
+			Mat dst;
+			clahe->apply(gray, dst);
+			return dst;
+		}
+		return Mat();   // 不支持的增强模块
 	}
 	Mat Enhance(Mat input, double argument, UINT MODULE) {
 		Mat _input;
@@ -363,6 +394,7 @@ namespace Transforms {
 			}
 			return dst;
 		}
+		return Mat();   // 不支持的边缘算子
 	};
 	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE){
 		cv::Mat _input;
@@ -595,7 +627,7 @@ namespace Transforms {
 
 			cv::calcHist(&mag8u, 1, channels, cv::Mat(), hist, 1, histSize, histRange, true, false);
 			float* h = hist.ptr<float>(0);
-			int total = mag8u.total();
+			int total = static_cast<int>(mag8u.total());
 			float sum = 0, sumB = 0;
 			for (int i = 0; i < 256; ++i) sum += i * h[i];
 			float wB = 0, maxVar = 0;
@@ -635,7 +667,7 @@ namespace Transforms {
 			const int maxIter = 20;
 			const double targetMin = 0.05, targetMax = 0.20;
 			const double stepUp = 1.2, stepDown = 0.8;
-			int total = grad.total();
+			int total = static_cast<int>(grad.total());
 			for (int iter = 0; iter < maxIter; ++iter)
 			{
 				cv::Mat mask;
@@ -698,6 +730,56 @@ namespace Transforms {
 			cv::normalize(planes[0], result, 0, 255, cv::NORM_MINMAX);
 			result.convertTo(result, CV_8U);
 			return result;                              
+		}
+	}
+	namespace Detect {
+		Mat houghLines(Mat input, double threshold, double minLineLength, double maxLineGap) {
+			Mat gray;
+			if (input.channels() == 3) cvtColor(input, gray, COLOR_BGR2GRAY);
+			else gray = input.clone();
+
+			Mat edges;
+			Canny(gray, edges, 50, 150);
+			std::vector<Vec4i> lines;
+			HoughLinesP(edges, lines, 1, CV_PI / 180.0,
+				static_cast<int>(threshold),
+				static_cast<int>(minLineLength),
+				static_cast<int>(maxLineGap));
+
+			Mat out;
+			if (input.channels() == 3) out = input.clone();
+			else cvtColor(input, out, COLOR_GRAY2BGR);
+			for (size_t i = 0; i < lines.size(); ++i) {
+				line(out,
+					Point(lines[i][0], lines[i][1]),
+					Point(lines[i][2], lines[i][3]),
+					Scalar(0, 0, 255), 2);
+			}
+			return out;
+		}
+		Mat harrisCorners(Mat input, double threshold, double k) {
+			Mat gray;
+			if (input.channels() == 3) cvtColor(input, gray, COLOR_BGR2GRAY);
+			else gray = input.clone();
+
+			if (threshold < 0) threshold = 0.01;
+			if (k <= 0) k = 0.04;
+			Mat response;
+			cornerHarris(gray, response, 2, 3, k);
+			double minVal = 0, maxVal = 0;
+			minMaxLoc(response, &minVal, &maxVal);
+			double t = maxVal * threshold;    // 相对最大响应的阈值
+
+			Mat out;
+			if (input.channels() == 3) out = input.clone();
+			else cvtColor(input, out, COLOR_GRAY2BGR);
+			for (int i = 0; i < response.rows; ++i) {
+				for (int j = 0; j < response.cols; ++j) {
+					if (response.at<float>(i, j) > t)
+						circle(out, Point(j, i), 4, Scalar(0, 255, 0), 1);
+				}
+			}
+			return out;
 		}
 	}
 }

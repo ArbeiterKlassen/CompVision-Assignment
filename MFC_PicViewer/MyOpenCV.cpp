@@ -1,48 +1,48 @@
-#include <afxwin.h>
+ï»¿#include <afxwin.h>
 #include "pch.h"
 #include "framework.h"
 #include "MyOpenCV.h"
 #include<opencv2/opencv.hpp>
 
 cv::Mat CMyOpenCV::mat_shift(cv::Mat img, double x, double y, int flags, cv::Scalar fillColor) {
-        cv::Mat res;                                // ½á¹ûÍ¼Ïñ
-        cv::Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, x, 0, 1, y); // Æ½ÒÆ¾ØÕó
+        cv::Mat res;                                // ç»“æœå›¾åƒ
+        cv::Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, x, 0, 1, y); // å¹³ç§»çŸ©é˜µ
 
-        cv::Size res_size = img.size();             // ÏÈ¸´ÖÆÔ­³ß´ç
-        res_size.width += x;                    // ¿í¶ÈÀ©Õ¹Æ½ÒÆÁ¿
-        res_size.height += y;                   // ¸ß¶ÈÀ©Õ¹Æ½ÒÆÁ¿
-        warpAffine(img, res, transform, res_size, flags, cv::BORDER_CONSTANT, fillColor); // Ö´ĞĞÆ½ÒÆ
-        return res;                             // ·µ»ØÆ½ÒÆ½á¹û
+        cv::Size res_size = img.size();             // å…ˆå¤åˆ¶åŸå°ºå¯¸
+        res_size.width += static_cast<int>(x);      // å®½åº¦æ‰©å±•å¹³ç§»é‡
+        res_size.height += static_cast<int>(y);     // é«˜åº¦æ‰©å±•å¹³ç§»é‡
+        warpAffine(img, res, transform, res_size, flags, cv::BORDER_CONSTANT, fillColor); // æ‰§è¡Œå¹³ç§»
+        return res;                             // è¿”å›å¹³ç§»ç»“æœ
     }
 
 cv::Mat CMyOpenCV::mat_rotate(cv::Mat img, double rotate_theta, int flags, cv::Scalar fillColor) {
-        cv::Mat res;                                // ½á¹ûÍ¼Ïñ
-        int w = img.size().width;               // Ô­Í¼¿í
-        int h = img.size().height;              // Ô­Í¼¸ß
-        int new_w = ceil(abs(w * cos(rotate_theta)) + abs(h * sin(rotate_theta))); // ¼ÆËãĞı×ªºóËùĞè¿í
-        int new_h = ceil(abs(w * sin(rotate_theta)) + abs(h * cos(rotate_theta))); // ¼ÆËãĞı×ªºóËùĞè¸ß
-        cv::Point2f rotate_center = cv::Point2f(w / 2.0, h / 2.0); // Ğı×ªÖĞĞÄÈ¡Í¼ÏñÖĞĞÄ
-        cv::Mat rotMat = cv::getRotationMatrix2D(rotate_center, rotate_theta, 1.0); // »ñÈ¡Ğı×ª¾ØÕó
-        rotMat.at<double>(0, 2) += (new_w - w) / 2.0; // ²¹Æ½ÒÆÁ¿Ê¹Í¼Ïñ¾ÓÖĞ
+        cv::Mat res;                                // ç»“æœå›¾åƒ
+        int w = img.size().width;               // åŸå›¾å®½
+        int h = img.size().height;              // åŸå›¾é«˜
+        int new_w = static_cast<int>(ceil(abs(w * cos(rotate_theta)) + abs(h * sin(rotate_theta)))); // è®¡ç®—æ—‹è½¬åæ‰€éœ€å®½
+        int new_h = static_cast<int>(ceil(abs(w * sin(rotate_theta)) + abs(h * cos(rotate_theta)))); // è®¡ç®—æ—‹è½¬åæ‰€éœ€é«˜
+        cv::Point2f rotate_center = cv::Point2f(static_cast<float>(w / 2.0), static_cast<float>(h / 2.0)); // æ—‹è½¬ä¸­å¿ƒå–å›¾åƒä¸­å¿ƒ
+        cv::Mat rotMat = cv::getRotationMatrix2D(rotate_center, rotate_theta, 1.0); // è·å–æ—‹è½¬çŸ©é˜µ
+        rotMat.at<double>(0, 2) += (new_w - w) / 2.0; // è¡¥å¹³ç§»é‡ä½¿å›¾åƒå±…ä¸­
         rotMat.at<double>(1, 2) += (new_h - h) / 2.0;
-        cv::warpAffine(img, res, rotMat, cv::Size(new_w, new_h), flags, cv::BORDER_CONSTANT, fillColor); // Ö´ĞĞĞı×ª
-        return res;                             // ·µ»ØĞı×ª½á¹û
+        cv::warpAffine(img, res, rotMat, cv::Size(new_w, new_h), flags, cv::BORDER_CONSTANT, fillColor); // æ‰§è¡Œæ—‹è½¬
+        return res;                             // è¿”å›æ—‹è½¬ç»“æœ
     }
 
 cv::Mat CMyOpenCV::mat_scale(cv::Mat img, double scalex, double scaley, int flags, cv::Scalar fillColor) {
-        cv::Mat res;                                // ½á¹ûÍ¼Ïñ
-        cv::Mat transform = (cv::Mat_<double>(2, 3) << scalex, 0, 0, 0, scaley, 0); // Ëõ·Å¾ØÕó
+        cv::Mat res;                                // ç»“æœå›¾åƒ
+        cv::Mat transform = (cv::Mat_<double>(2, 3) << scalex, 0, 0, 0, scaley, 0); // ç¼©æ”¾çŸ©é˜µ
 
-        cv::Size res_size = img.size();             // ÏÈ¸´ÖÆÔ­³ß´ç
-        res_size.width = ceil(res_size.width * scalex); // ¼ÆËãËõ·Åºó¿í
-        res_size.height = ceil(res_size.height * scaley); // ¼ÆËãËõ·Åºó¸ß
-        warpAffine(img, res, transform, res_size, flags, cv::BORDER_CONSTANT, fillColor); // Ö´ĞĞËõ·Å
-        return res;                             // ·µ»ØËõ·Å½á¹û
+        cv::Size res_size = img.size();             // å…ˆå¤åˆ¶åŸå°ºå¯¸
+        res_size.width = static_cast<int>(ceil(res_size.width * scalex)); // è®¡ç®—ç¼©æ”¾åå®½
+        res_size.height = static_cast<int>(ceil(res_size.height * scaley)); // è®¡ç®—ç¼©æ”¾åé«˜
+        warpAffine(img, res, transform, res_size, flags, cv::BORDER_CONSTANT, fillColor); // æ‰§è¡Œç¼©æ”¾
+        return res;                             // è¿”å›ç¼©æ”¾ç»“æœ
     }
 
 cv::Mat CMyOpenCV::mat_complex_transitions(cv::Mat img, mat_operate op, int flags, cv::Scalar fillColor) {
-        cv::Mat res = mat_shift(img, op.tx, op.ty, flags, fillColor); // ÏÈÆ½ÒÆ
-        res = mat_rotate(res, op.tr, flags, fillColor); // ÔÙĞı×ª
-        res = mat_scale(res, op.tsx, op.tsy, flags, fillColor); // ×îºóËõ·Å
-        return res;                             // ·µ»Ø¸´ºÏ±ä»»½á¹û
+        cv::Mat res = mat_shift(img, op.tx, op.ty, flags, fillColor); // å…ˆå¹³ç§»
+        res = mat_rotate(res, op.tr, flags, fillColor); // å†æ—‹è½¬
+        res = mat_scale(res, op.tsx, op.tsy, flags, fillColor); // æœ€åç¼©æ”¾
+        return res;                             // è¿”å›å¤åˆå˜æ¢ç»“æœ
     }

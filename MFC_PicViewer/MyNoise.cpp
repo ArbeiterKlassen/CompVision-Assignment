@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
 #include "MyNoise.h"
@@ -21,36 +21,38 @@ namespace Noises {
             CV_Assert(input.type() == CV_8UC1 || input.type() == CV_8UC3);
             if (input.type() == CV_8UC3)cvtColor(input, input, COLOR_BGR2GRAY);
             Mat noise(input.size(), input.type());
-            randn(noise, 0, sigma);                     // Éú³É N(0,¦Ò^2)
+            randn(noise, 0, sigma);                     // ç”Ÿæˆ N(0,Ïƒ^2)
             Mat dst;
-            add(input, noise, dst, noArray(), CV_8UC3);   // ×Ô¶¯ saturate_cast
+            add(input, noise, dst, noArray(), CV_8UC3);   // è‡ªåŠ¨ saturate_cast
             return dst;
         }
+        return Mat();   // ä¸æ”¯æŒçš„å™ªå£°æ¨¡å—
 	}
     Mat noise(Mat input, double gain, double sigma, UINT MODULE) {
         if (MODULE == Modules::CLASSIC::POISSON_GAUSSIAN) {
             CV_Assert(input.type() == CV_8UC1 || input.type() == CV_8UC3);
             if (input.type() == CV_8UC3)cvtColor(input, input, COLOR_BGR2GRAY);
             Mat lambda;
-            input.convertTo(lambda, CV_32FC1, 1.0 / gain);      // ¦Ë = x / gain
+            input.convertTo(lambda, CV_32FC1, 1.0 / gain);      // Î» = x / gain
 
             Mat poissonNoise(lambda.size(), CV_32FC1);
-            randu(poissonNoise, 0.f, 1.f);                  // ÏÈÌîËæ»úÊı
+            randu(poissonNoise, 0.f, 1.f);                  // å…ˆå¡«éšæœºæ•°
             for (int i = 0; i < lambda.rows; ++i)
                 for (int j = 0; j < lambda.cols; ++j)
                     poissonNoise.at<float>(i, j) =
                     static_cast<float>(cvPoisson(lambda.at<float>(i, j))) - lambda.at<float>(i, j);
-            // ÉÏÃæ¼õ¾ùÖµ£¬ÈÃ²´ËÉÏîÁã¾ùÖµ
+            // ä¸Šé¢å‡å‡å€¼ï¼Œè®©æ³Šæ¾é¡¹é›¶å‡å€¼
 
             Mat gaussianNoise(lambda.size(), CV_32FC1);
             randn(gaussianNoise, 0.0, sigma);
 
-            Mat noisy = lambda + poissonNoise + gaussianNoise; // ÈÔÈ»¸¡µã
+            Mat noisy = lambda + poissonNoise + gaussianNoise; // ä»ç„¶æµ®ç‚¹
             Mat z;
-            noisy *= gain;                                    // Ëõ»Ø 0~255 Á¿¼¶
+            noisy *= gain;                                    // ç¼©å› 0~255 é‡çº§
             noisy.convertTo(z, CV_8UC1);                      //  saturate_cast
             return z;
         }
+        return Mat();   // ä¸æ”¯æŒçš„å™ªå£°æ¨¡å—
     }
     Mat noise(Mat input, double alpha, double sigmaT, double sigmaG, double q, UINT MODULE)
     {
@@ -66,8 +68,8 @@ namespace Noises {
             for (int i = 0; i < input.rows; ++i) {
                 for (int j = 0; j < input.cols; ++j) {
                     int x = input.at<uchar>(i, j);
-                    int p = poisson(x / alpha);               // Poisson(x/¦Á)
-                    double sig = alpha * p;                   // Ëõ·Å»Øµç×ÓÊı
+                    int p = poisson(x / alpha);               // Poisson(x/Î±)
+                    double sig = alpha * p;                   // ç¼©æ”¾å›ç”µå­æ•°
                     double t = rng.tukey() * sigmaT;
                     double g = rng.gaussian() * sigmaG;
                     double u = (rng.uniform() - 0.5) * q;     // Uniform(-q/2,q/2)
@@ -77,5 +79,6 @@ namespace Noises {
             }
             return dst;
         }
+        return Mat();   // ä¸æ”¯æŒçš„å™ªå£°æ¨¡å—
     }
 }

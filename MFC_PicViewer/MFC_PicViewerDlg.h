@@ -12,6 +12,7 @@
 #include "MyTransforms.h"
 #include "MyEditControl.h"
 #include "MyINIReader.h"
+#include "ImageDocument.h"
 #include <opencv2/opencv.hpp>
 using namespace cv;
 // CMFCPicViewerDlg 对话框
@@ -61,11 +62,23 @@ using namespace cv;
 #define MSG_MENU_EDGE_CANNY 1153
 #define MSG_MENU_LOAD_PROPERTIES 1154
 #define MSG_MENU_EDGE_WATERSHED 1155
-#define MSG_MENU_MATCH_OPEN_SECOND 1156
-#define MSG_MENU_MATCH_ORB 1157
-#define MSG_MENU_MATCH_SIFT 1158
-#define MSG_MENU_MATCH_AKAZE 1159
+#define MSG_MENU_REDO 1156
+#define MSG_MENU_GAMMA 1157
+#define MSG_MENU_CLAHE 1158
+#define MSG_MENU_MORPH_ERODE 1159
+#define MSG_MENU_MORPH_DILATE 1160
+#define MSG_MENU_MORPH_OPEN 1161
+#define MSG_MENU_MORPH_CLOSE 1162
+#define MSG_MENU_FILTER_BILATERAL 1163
+#define MSG_MENU_HOUGH 1164
+#define MSG_MENU_HARRIS 1165
+#define MSG_MENU_MATCH_OPEN_SECOND 1166
+#define MSG_MENU_MATCH_ORB 1167
+#define MSG_MENU_MATCH_SIFT 1168
+#define MSG_MENU_MATCH_AKAZE 1169
 
+
+struct ImageOpDef;   // 图像操作注册表条目（定义见 MFC_PicViewerDlg.cpp）
 
 class CMFCPicViewerDlg : public CDialogEx
 {
@@ -106,6 +119,8 @@ public:
 	CImageStatic m_picStatic_Analyze; // 自定义图片
 	CImageStatic m_picStatic;//自定义图片
 	CMyEditControl Info_Bar_Cedit;
+	ImageDocument m_doc;   // 图像状态（原始图/当前图/分析图/参考图 + 撤销重做栈）
+	UINT m_infoLine = 0;   // 信息栏行号
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
@@ -117,60 +132,34 @@ public:
 	afx_msg void OnBnClickedButton2();
 	afx_msg void OnBnClickedButton3();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
-	afx_msg void CVMat_to_Pic(cv::Mat& img, UINT nID);
+	afx_msg void CVMat_to_Pic(const cv::Mat& img, UINT nID);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg cv::String Cstring_to_cvString(CString cstr);
 
 	afx_msg void OnMenuOpen();
 	afx_msg void OnMenuSaveTo();
 	afx_msg void OnMenuSaveAsTo();
-	afx_msg void OnMenuGrayize();
-	afx_msg void OnMenuBinaryize();
 	afx_msg void OnMenuUndo();
+	afx_msg void OnMenuRedo();
 	afx_msg void OnMenuReload();
 	afx_msg void OnMenuOption();
-	afx_msg void OnMenuShift();
-	afx_msg void OnMenuScale();
-	afx_msg void OnMenuRotate();
 	afx_msg void OnMenuHistogram();
 	afx_msg void OnMenuHistogramGray();
-	afx_msg void OnMenuTransform(Mat (*func)(Mat),Mat input);
-	afx_msg void OnMenuNegative();
-	afx_msg void OnMenuNegativeColorful();
-	afx_msg void OnMenuLinearGrayScale();
-	afx_msg void OnMenuLinearGrayScaleMultiranges();
-	afx_msg void OnMenuNonlinearLog();
-	afx_msg void OnMenuNonlinearExp();
-	afx_msg void OnMenuDHE();
 	afx_msg void OnMenuDHS();
-	afx_msg void OnMenuSpatialFilterMax();
-	afx_msg void OnMenuSpatialFilterMin();
-	afx_msg void OnMenuSpatialFilterMedian();
-	afx_msg void OnMenuSpatialFilterMean();
-	afx_msg void OnMenuNoiseAWGN();
-	afx_msg void OnMenuNoisePoissonGaussian();
-	afx_msg void OnMenuNoiseELDSFRN();
 	afx_msg void OnMenuSaveAnalyzeTo();
-	afx_msg void OnMenuDFT();
-	afx_msg void OnMenuIDFT();
-	afx_msg void OnMenuButterworthLowFilter();
-	afx_msg void OnMenuButterworthHighFilter();
-	afx_msg void Info_append(std::string str);
-	afx_msg void CMFCPicViewerDlg::Info_clear();
-	afx_msg void OnMenuBinaryize_Otsu();
-	afx_msg void OnMenuBinaryize_RegionGrow();
-	afx_msg void OnMenuEdgeRobert();
-	afx_msg void OnMenuEdgePrewitt();
-	afx_msg void OnMenuEdgeSobel();
-	afx_msg void OnMenuEdgeFrieChen();
-	afx_msg void OnMenuEdgeLaplacian();
-	afx_msg void OnMenuEdgeLOG();
-	afx_msg void OnMenuEdgeCanny();
 	afx_msg void OnMenuLoadProperties();
-	afx_msg void OnMenuEdgeWatershed();
+	afx_msg void OnMenuOperationRange(UINT nID);
 	afx_msg void OnMenuMatchOpenSecond();
 	afx_msg void OnMenuMatchORB();
 	afx_msg void OnMenuMatchSIFT();
 	afx_msg void OnMenuMatchAKAZE();
-	afx_msg void RunFeatureMatch(UINT MODULE, CString method_name);
+
+	void Info_append(std::string str);
+	void Info_clear();
+	void RunFeatureMatch(UINT MODULE, CString method_name);   // 特征匹配统一流程
+
+private:
+	const ImageOpDef* FindOp(UINT nID);
+	void RunOperation(UINT nID);    // 注册表统一执行流程
+	void ShowPopupMenu(int index);  // 按声明式菜单表弹出菜单
 };

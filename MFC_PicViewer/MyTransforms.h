@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "pch.h"
 #include "framework.h"
 #include "afxdialogex.h"
@@ -21,7 +21,7 @@ namespace Transforms {
 		}
 		namespace NONLINEAR {
 			enum {
-				LOG = Transforms::Modules::LINEAR::SCALE_LINEAR_MULTIRANGES + 1, EXP
+				LOG = Transforms::Modules::LINEAR::SCALE_LINEAR_MULTIRANGES + 1, EXP, GAMMA
 			};
 		}
 		namespace BASIC {
@@ -31,7 +31,7 @@ namespace Transforms {
 		}
 		namespace ENHANCE {
 			enum {
-				DHE = Transforms::Modules::BASIC::GRAYIZE + 1,DHS
+				DHE = Transforms::Modules::BASIC::GRAYIZE + 1, DHS, CLAHE
 			};
 		}
 		namespace FOURIER {
@@ -47,6 +47,11 @@ namespace Transforms {
 		namespace EDGE {
 			enum {
 				ROBERT = Transforms::Modules::DEVIDE::REGIONGROW + 1, PREWITT, SOBEL, FRIE_CHEN ,LAPLACIAN ,LOG ,CANNY, WATERSHED_DISTANCE, WATERSHED_MORPH_GRAD, WATERSHED_CANNY
+			};
+		}
+		namespace DETECT {
+			enum {
+				HOUGH = Transforms::Modules::EDGE::WATERSHED_CANNY + 1, HARRIS
 			};
 		}
 	}
@@ -68,6 +73,12 @@ namespace Transforms {
 		Mat spectrumView(Mat freq);
 		Mat IFFT(Mat gray);
 	}
+	namespace Detect {
+		// Hough 直线检测：返回标记出直线的彩色图
+		Mat houghLines(Mat input, double threshold, double minLineLength, double maxLineGap);
+		// Harris 角点检测：返回标记出角点的彩色图
+		Mat harrisCorners(Mat input, double threshold, double k);
+	}
 	Mat Transform(Mat input, UINT x, UINT y, UINT MODULE);
 	Mat Transform(Mat input, float theta, UINT MODULE);
 	Mat Transform(Mat input, float scalex, float scaley, UINT MODULE);
@@ -78,5 +89,6 @@ namespace Transforms {
 	Mat Enhance(Mat input, Mat ref, UINT MODULE);
 	Mat Enhance(Mat input, double argument, UINT MODULE);
 	Mat Enhance(Mat input, double argument1, double argument2, UINT MODULE);
+	Mat Enhance(Mat input, double clipLimit, int tileSize, UINT MODULE);
 	Mat Watershed(Mat input, UINT kernel_size, UINT MODULE);
 }
