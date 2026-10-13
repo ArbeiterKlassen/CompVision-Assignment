@@ -43,6 +43,14 @@
 - Hough 直线检测
 - Harris 角点检测
 
+### 特征匹配（两张同一物体不同角度的照片）
+- 打开第二张图像作为待匹配图像（复用参考图槽位）
+- ORB 特征匹配：ORB 检测子 + BFMatcher 汉明距离
+- SIFT 特征匹配：SIFT 检测子 + FLANN(KD-Tree)
+- AKAZE 特征匹配：AKAZE 检测子 + BFMatcher 汉明距离
+- 统一流程：KNN 取两个最近邻 → Lowe 比值检验 → RANSAC 单应性内点统计 → 两图并排连线可视化
+- 结果输出到主显示区与分析结果槽位，可用「文件 - 保存分析结果到」导出
+
 ### 频域
 - 离散傅里叶变换（DFT）/ 逆变换（IDFT）
 
@@ -61,6 +69,7 @@ MFC_PicViewer/
 ├── MyTransforms.cpp / .h             # 变换 / 直方图增强 / 边缘检测 / 分水岭 / DFT / Hough / Harris
 ├── MyFilter.cpp / .h                 # 空间域滤波 + 巴特沃斯频域滤波 + 双边滤波
 ├── MyMorphology.cpp / .h             # 形态学：腐蚀 / 膨胀 / 开 / 闭
+├── MyFeatureMatch.cpp / .h           # 特征匹配：ORB / SIFT / AKAZE + 比值检验 + RANSAC
 ├── MyNoise.cpp / .h                  # AWGN / 泊松-高斯 / ELD-SFRN 噪声
 ├── MyOpenCV.cpp / .h                 # 仿射变换封装
 ├── MyMenu.cpp / .h                   # 自绘弹出菜单
@@ -81,8 +90,9 @@ MFC_PicViewer/
 
 ## 使用
 
-- 顶部菜单栏：**文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置**
+- 顶部菜单栏：**文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置 / 匹配**
 - 点击菜单栏文字弹出对应功能菜单
+- 特征匹配流程：「文件 → 打开」载入第一张 → 「匹配 → 打开第二张图像」载入另一角度照片 → 选择 ORB / SIFT / AKAZE 之一
 - 修改 `properties.ini` 后，通过「配置 → 参数载入」热加载，无需重新编译
 - 底部信息栏输出每次操作的日志与统计结果
 
@@ -107,13 +117,18 @@ MFC_PicViewer/
 | edge | default_edge_* | 见 ini | 各边缘算子默认阈值 |
 | detect | hough_threshold / min_line_length / max_line_gap | 100 / 50 / 10 | Hough 直线检测参数 |
 | detect | harris_threshold / k | 0.01 / 0.04 | Harris 角点相对阈值 / 响应系数 |
+| feature_match | match_ratio | 0.75 | Lowe 比值检验阈值（越小越严格） |
+| feature_match | match_max_features | 1000 | 检测子保留的最大特征点数 |
+| feature_match | match_ransac_threshold | 3.0 | RANSAC 单应性重投影阈值（像素） |
+| feature_match | match_max_draw_matches | 100 | 可视化中绘制的连线数量上限 |
 
 ## 架构说明（2026-08 重构后）
 
 1. **ImageDocument 数据层**：原始图 / 当前图 / 分析图 / 参考图与文件路径统一管理，撤销 / 重做采用双栈实现，取代原全局变量。
 2. **图像操作注册表**：每个算法以 `ImageOpDef{ id, run, log, needsFreqDomain, toBgr }` 注册，由 `RunOperation()` 统一执行「检查 → 计算 → 类型转换 → 入栈 → 显示 → 日志」。新增算法只需注册条目 + 添加菜单项。
-3. **声明式菜单表**：7 个弹出菜单收敛为 `kMenuBars` 数据表 + 一个 `ShowPopupMenu()`。
+3. **声明式菜单表**：8 个弹出菜单收敛为 `kMenuBars` 数据表 + 一个 `ShowPopupMenu()`。
 4. **AppParams 参数结构体**：算法参数统一收敛，由 `properties.ini` 驱动。
+5. **窗口圆角**：优先请求 Windows 11 的 DWM 圆角（抗锯齿），系统不支持时回退为窗口区域裁剪（见 `ApplyRoundedCorners()`）。
 
 ## 已知说明
 

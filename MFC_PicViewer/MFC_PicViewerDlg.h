@@ -162,4 +162,7 @@ private:
 	const ImageOpDef* FindOp(UINT nID);
 	void RunOperation(UINT nID);    // 注册表统一执行流程
 	void ShowPopupMenu(int index);  // 按声明式菜单表弹出菜单
+	void ApplyRoundedCorners();     // 窗口圆角：Win11 用 DWM 圆角，其余系统回退到区域裁剪
+	void ApplyRoundedRegion();      // 回退方案：用窗口区域裁出圆角
+	bool m_rounded_by_region = false;   // 是否走了区域裁剪方案
 };

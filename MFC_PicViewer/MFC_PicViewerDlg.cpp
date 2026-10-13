@@ -359,6 +359,7 @@ BOOL CMFCPicViewerDlg::OnInitDialog()
 	m_btnMin.SetImagePath(_T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"));
 	m_btnMin.InitMyButton(rtBtnClo.left, 5, 16, 16, true);
 	//dwStyle = (dwStyle | LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+	ApplyRoundedCorners();
 	OnMenuLoadProperties();
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -634,8 +635,59 @@ void CMFCPicViewerDlg::OnSize(UINT nType, int cx, int cy)
 		m_btnMin.SetImagePath(_T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"), _T(".\\res\\icon_minimiz.png"));
 		m_btnMin.InitMyButton(rect.left, rect.top, 16, 16, true);
 	}
+	// 区域裁剪方案需要在窗口尺寸变化后重新计算圆角区域
+	if (m_rounded_by_region)ApplyRoundedRegion();
 	Invalidate();
 	// TODO: 在此处添加消息处理程序代码
+}
+
+// 窗口圆角：优先请求 Windows 11 的 DWM 圆角（抗锯齿、跟随系统视觉设置），
+// 系统不支持时回退为窗口区域裁剪。
+// 注意：本对话框是无边框窗口（WS_POPUP，没有 WS_CAPTION/WS_THICKFRAME），
+// DWM 只对"带边框"的窗口应用圆角，因此实际生效的通常是区域裁剪方案。
+void CMFCPicViewerDlg::ApplyRoundedCorners()
+{
+	HMODULE hDwmApi = ::LoadLibraryW(L"dwmapi.dll");
+	if (hDwmApi != nullptr)
+	{
+		typedef HRESULT(WINAPI* PFN_DwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
+		PFN_DwmSetWindowAttribute pDwmSetWindowAttribute =
+			reinterpret_cast<PFN_DwmSetWindowAttribute>(::GetProcAddress(hDwmApi, "DwmSetWindowAttribute"));
+		if (pDwmSetWindowAttribute != nullptr)
+		{
+			const DWORD DWMWA_WINDOW_CORNER_PREFERENCE_LOCAL = 33;   // Windows 11 SDK 中的 DWMWA_WINDOW_CORNER_PREFERENCE
+			const int DWMWCP_ROUND_LOCAL = 2;                        // DWM_WINDOW_CORNER_PREFERENCE::DWMWCP_ROUND
+			int corner_preference = DWMWCP_ROUND_LOCAL;
+			HRESULT hr = pDwmSetWindowAttribute(m_hWnd, DWMWA_WINDOW_CORNER_PREFERENCE_LOCAL,
+				&corner_preference, sizeof(corner_preference));
+			if (SUCCEEDED(hr))
+			{
+				::FreeLibrary(hDwmApi);
+				Info_append("窗口圆角：DWM 圆角请求成功");
+				return;
+			}
+		}
+		::FreeLibrary(hDwmApi);
+	}
+
+	m_rounded_by_region = true;
+	ApplyRoundedRegion();
+	Info_append("窗口圆角：使用区域裁剪方案");
+}
+
+void CMFCPicViewerDlg::ApplyRoundedRegion()
+{
+	// 最大化/最小化时不需要圆角，否则屏幕边缘会出现缺口
+	if (IsZoomed() || IsIconic())
+	{
+		::SetWindowRgn(m_hWnd, nullptr, TRUE);
+		return;
+	}
+	CRect rc;
+	GetWindowRect(&rc);
+	const int radius = 12;   // 圆角半径（像素）
+	HRGN hRgn = ::CreateRoundRectRgn(0, 0, rc.Width() + 1, rc.Height() + 1, radius * 2, radius * 2);
+	::SetWindowRgn(m_hWnd, hRgn, TRUE);   // 设置成功后由系统负责释放 hRgn
 }
 
 void CMFCPicViewerDlg::OnBnClickedButton1()
