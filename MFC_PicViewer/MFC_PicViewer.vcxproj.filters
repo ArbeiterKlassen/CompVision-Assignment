@@ -36,6 +36,9 @@
     <ClInclude Include="MyMenu.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MyFeatureMatch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="MyStatic.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -81,6 +84,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyMenu.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyFeatureMatch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyStatic.cpp">

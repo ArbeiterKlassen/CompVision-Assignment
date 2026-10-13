@@ -16,6 +16,7 @@
 #include "MyTransforms.h"
 #include "MyFilter.h"
 #include "MyNoise.h"
+#include "MyFeatureMatch.h"
 #include "MyEditControl.h"
 #include "MyINIReader.h"
 //STL头
@@ -71,6 +72,12 @@ double noise_ELD_SFRN_sigmaG = 2.0;
 double noise_ELD_SFRN_q = 1.0;
 double butterworth_D0 = 500.0;
 UINT butterworth_level = 1;
+
+//特征匹配参数区
+double match_ratio = 0.75;
+int match_max_features = 1000;
+double match_ransac_threshold = 3.0;
+int match_max_draw_matches = 100;
 
 double default_edge_threshold = 100;
 double default_edge_laplacian_level1_threshold = 100;
@@ -200,6 +207,10 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_EDGE_CANNY, &CMFCPicViewerDlg::OnMenuEdgeCanny)
 	ON_COMMAND(MSG_MENU_LOAD_PROPERTIES, &CMFCPicViewerDlg::OnMenuLoadProperties)
 	ON_COMMAND(MSG_MENU_EDGE_WATERSHED, &CMFCPicViewerDlg::OnMenuEdgeWatershed)
+	ON_COMMAND(MSG_MENU_MATCH_OPEN_SECOND, &CMFCPicViewerDlg::OnMenuMatchOpenSecond)
+	ON_COMMAND(MSG_MENU_MATCH_ORB, &CMFCPicViewerDlg::OnMenuMatchORB)
+	ON_COMMAND(MSG_MENU_MATCH_SIFT, &CMFCPicViewerDlg::OnMenuMatchSIFT)
+	ON_COMMAND(MSG_MENU_MATCH_AKAZE, &CMFCPicViewerDlg::OnMenuMatchAKAZE)
 END_MESSAGE_MAP()
 
 
@@ -408,6 +419,19 @@ void CMFCPicViewerDlg::OnPaint()
 		str1 = TEXT("配置");
 		dc.SetTextColor(RGB(185, 192, 197));
 		dc.DrawText(str1, m_rBtnOption, DT_LEFT | DT_VCENTER);
+		//绘制特征匹配菜单栏
+		GetClientRect(&rtBtnClo);
+		rtBtnClo.left = rtBtnClo.left + 430;
+		rtBtnClo.right = rtBtnClo.left + 30;
+		rtBtnClo.bottom *= 0.1;
+		rtBtnClo.top = rtBtnClo.bottom - 20;
+		m_rtBtnMatch = rtBtnClo;
+		dc.Rectangle(rtBtnClo);
+		dc.FillSolidRect(m_rtBtnMatch, RGB(45, 51, 59));
+		dc.SetBkMode(TRANSPARENT);
+		str1 = TEXT("匹配");
+		dc.SetTextColor(RGB(185, 192, 197));
+		dc.DrawText(str1, m_rtBtnMatch, DT_LEFT | DT_VCENTER);
 
 		SelectObject(dc, loldfont);
 		DeleteObject(hNewFont);
@@ -445,6 +469,7 @@ LRESULT CMFCPicViewerDlg::OnNcHitTest(CPoint point)
 			m_rtBtnFilterate.PtInRect(point) ||
 			m_rtBtnNoise.PtInRect(point) ||
 			m_rtBtnAnalyze.PtInRect(point) ||
+			m_rtBtnMatch.PtInRect(point) ||
 			m_rBtnOption.PtInRect(point))
 		{
 			nHitTest = HTCLIENT;
@@ -831,6 +856,27 @@ void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_LOAD_PROPERTIES, _T("参数载入"), _T(""), 0);
 		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_OPTION, _T("参数配置"), _T(""), 0);
 		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 370, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
+		m_MenuEx.DestroyMenu();
+
+		m_MenuEx.UnInstallHook();
+	}
+
+	if (m_rtBtnMatch.PtInRect(point)) {
+		CRect rectDlg;
+		GetWindowRect(rectDlg);//获得窗体的大小
+		CMenuEx m_MenuEx;
+		m_MenuEx.CreatePopupMenu();
+
+		m_MenuEx.SetItemHeight(30);
+		m_MenuEx.SetFontInfo(14);
+		m_MenuEx.SetBorderColor(RGB(45, 51, 60));
+		m_MenuEx.SetMenuWidth(130);
+		m_MenuEx.InstallHook(theApp.m_hInstance);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_MATCH_OPEN_SECOND, _T("打开第二张图像"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_MATCH_ORB, _T("ORB 特征匹配"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_MATCH_SIFT, _T("SIFT 特征匹配"), _T(""), 0);
+		m_MenuEx.AppendItem(MF_STRING, MSG_MENU_MATCH_AKAZE, _T("AKAZE 特征匹配"), _T(""), 0);
+		m_MenuEx.TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, rectDlg.left + 430, rectDlg.top + static_cast<int>((rectDlg.bottom - rectDlg.top) * 0.104), this);
 		m_MenuEx.DestroyMenu();
 
 		m_MenuEx.UnInstallHook();
@@ -1658,6 +1704,10 @@ void CMFCPicViewerDlg::OnMenuLoadProperties() {
 		edge_canny_low_threshold = default_edge_canny_low_threshold;
 		edge_canny_high_threshold = default_edge_canny_high_threshold;
 		edge_watershed_mode = default_edge_watershed_mode;
+		match_ratio = stod(parser.getValue("feature_match", "match_ratio"));
+		match_max_features = stoi(parser.getValue("feature_match", "match_max_features"));
+		match_ransac_threshold = stod(parser.getValue("feature_match", "match_ransac_threshold"));
+		match_max_draw_matches = stoi(parser.getValue("feature_match", "match_max_draw_matches"));
 		res = parser.getAll();
 		Info_append("sections: " + to_string(res.size()));
 		for (std::map<std::string, std::map<std::string, std::string>>::iterator it = res.begin(); it != res.end(); ++it) {
@@ -1680,4 +1730,71 @@ void CMFCPicViewerDlg::OnMenuEdgeWatershed() {
 	current_img = Transforms::Watershed(current_img, 3, Transforms::Modules::EDGE::WATERSHED_CANNY - 1 + edge_watershed_mode);
 	CVMat_to_Pic(current_img, IDC_STATIC_PIC);
 	Info_append(("边缘提取完成"));
+}
+void CMFCPicViewerDlg::OnMenuMatchOpenSecond() {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	// 打开第二张图像：同一物体另一个角度拍摄的照片
+	CFileDialog dlg(TRUE, _T("jpg"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+		_T("图片文件 (*.jpg;*.png;*.bmp;*.jpeg;*.tiff;*.tif)|*.jpg;*.png;*.bmp;*.jpeg;*.tiff;*.tif||"));
+	if (dlg.DoModal() != IDOK)return;
+
+	ref_file_path = dlg.GetPathName();
+	referrence_img = imread(Cstring_to_cvString(ref_file_path));
+	if (referrence_img.empty())
+	{
+		AfxMessageBox(_T("第二张图像加载失败！"), MB_ICONWARNING);
+		return;
+	}
+	// 在分析区显示第二张图像，便于确认
+	CVMat_to_Pic(referrence_img, IDC_STATIC_PIC_ANALYZE);
+	Info_append(("第二张图像已载入："));
+	Info_append(Cstring_to_cvString(ref_file_path));
+	Info_append("图像尺寸：" + to_string(referrence_img.cols) + " x " + to_string(referrence_img.rows));
+}
+void CMFCPicViewerDlg::RunFeatureMatch(UINT MODULE, CString method_name) {
+	if (img_stack.empty() || current_img.empty())
+	{
+		AfxMessageBox(_T("还没有加载图像！"), MB_ICONWARNING);
+		return;
+	}
+	if (ref_file_path.IsEmpty() || referrence_img.empty())
+	{
+		AfxMessageBox(_T("请先通过“匹配 - 打开第二张图像”载入同一物体的另一张照片！"), MB_ICONWARNING);
+		return;
+	}
+	if (current_img.depth() != CV_8U || referrence_img.depth() != CV_8U)
+	{
+		AfxMessageBox(_T("当前图像不是 8 位图像（可能是傅里叶变换结果），无法进行特征匹配！"), MB_ICONWARNING);
+		return;
+	}
+
+	FeatureMatch::MatchResult res = FeatureMatch::match(current_img, referrence_img, MODULE, match_ratio, match_max_features, match_ransac_threshold, match_max_draw_matches);
+	if (!res.success)
+	{
+		AfxMessageBox(_T("特征匹配失败：图像中未能提取到足够的特征点！"), MB_ICONWARNING);
+		return;
+	}
+
+	// 匹配结果（两图并排 + 连线）显示在主显示区，同时存入分析结果，可用“文件 - 保存分析结果到”导出
+	Analyze_img = res.visualization;
+	CVMat_to_Pic(res.visualization, IDC_STATIC_PIC);
+
+	Info_append(Cstring_to_cvString(method_name) + "完成");
+	Info_append("特征点数量：图像 1 为 " + to_string(res.keypoints1) + "，图像 2 为 " + to_string(res.keypoints2));
+	Info_append("比值检验后的匹配对数：" + to_string(res.good_matches));
+	Info_append("RANSAC 单应性内点数：" + to_string(res.inliers));
+	if (res.scale < 1.0)Info_append("图像已按 " + to_string(res.scale) + " 等比缩小后匹配");
+}
+void CMFCPicViewerDlg::OnMenuMatchORB() {
+	RunFeatureMatch(FeatureMatch::Modules::ORB_MATCH, _T("ORB 特征匹配"));
+}
+void CMFCPicViewerDlg::OnMenuMatchSIFT() {
+	RunFeatureMatch(FeatureMatch::Modules::SIFT_MATCH, _T("SIFT 特征匹配"));
+}
+void CMFCPicViewerDlg::OnMenuMatchAKAZE() {
+	RunFeatureMatch(FeatureMatch::Modules::AKAZE_MATCH, _T("AKAZE 特征匹配"));
 }

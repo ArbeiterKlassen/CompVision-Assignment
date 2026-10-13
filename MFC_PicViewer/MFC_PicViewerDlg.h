@@ -61,6 +61,10 @@ using namespace cv;
 #define MSG_MENU_EDGE_CANNY 1153
 #define MSG_MENU_LOAD_PROPERTIES 1154
 #define MSG_MENU_EDGE_WATERSHED 1155
+#define MSG_MENU_MATCH_OPEN_SECOND 1156
+#define MSG_MENU_MATCH_ORB 1157
+#define MSG_MENU_MATCH_SIFT 1158
+#define MSG_MENU_MATCH_AKAZE 1159
 
 
 class CMFCPicViewerDlg : public CDialogEx
@@ -92,6 +96,7 @@ public:
 	CRect m_rtBtnNoise;
 	CRect m_rtBtnAnalyze;
 	CRect m_rBtnOption;
+	CRect m_rtBtnMatch;
 	// 生成的消息映射函数
 	CMyStatic m_myText;
 	CMyStatic m_myText_Analyse_Title;
@@ -163,4 +168,9 @@ public:
 	afx_msg void OnMenuEdgeCanny();
 	afx_msg void OnMenuLoadProperties();
 	afx_msg void OnMenuEdgeWatershed();
+	afx_msg void OnMenuMatchOpenSecond();
+	afx_msg void OnMenuMatchORB();
+	afx_msg void OnMenuMatchSIFT();
+	afx_msg void OnMenuMatchAKAZE();
+	afx_msg void RunFeatureMatch(UINT MODULE, CString method_name);
 };
