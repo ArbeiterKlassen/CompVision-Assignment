@@ -13,6 +13,8 @@
 #include "MyEditControl.h"
 #include "MyINIReader.h"
 #include "ImageDocument.h"
+#include "MyCalibration.h"
+#include "MyStereo.h"
 #include <opencv2/opencv.hpp>
 using namespace cv;
 // CMFCPicViewerDlg 对话框
@@ -76,6 +78,10 @@ using namespace cv;
 #define MSG_MENU_MATCH_ORB 1167
 #define MSG_MENU_MATCH_SIFT 1168
 #define MSG_MENU_MATCH_AKAZE 1169
+#define MSG_MENU_CALIBRATE 1170
+#define MSG_MENU_RECTIFY_STEREO 1171
+#define MSG_MENU_DISPARITY_SGBM 1172
+#define MSG_MENU_DISPARITY_DEPTH 1173
 
 
 struct ImageOpDef;   // 图像操作注册表条目（定义见 MFC_PicViewerDlg.cpp）
@@ -110,6 +116,7 @@ public:
 	CRect m_rtBtnAnalyze;
 	CRect m_rBtnOption;
 	CRect m_rtBtnMatch;
+	CRect m_rtBtnStereo;
 	// 生成的消息映射函数
 	CMyStatic m_myText;
 	CMyStatic m_myText_Analyse_Title;
@@ -153,10 +160,15 @@ public:
 	afx_msg void OnMenuMatchORB();
 	afx_msg void OnMenuMatchSIFT();
 	afx_msg void OnMenuMatchAKAZE();
+	afx_msg void OnMenuCalibrate();
+	afx_msg void OnMenuRectifyStereo();
+	afx_msg void OnMenuDisparitySGBM();
+	afx_msg void OnMenuDisparityDepth();
 
 	void Info_append(std::string str);
 	void Info_clear();
 	void RunFeatureMatch(UINT MODULE, CString method_name);   // 特征匹配统一流程
+	void ShowResultView(const cv::Mat& img);                  // 立体视觉结果统一显示（主显示区 + 分析结果槽位）
 
 private:
 	const ImageOpDef* FindOp(UINT nID);
@@ -166,4 +178,14 @@ private:
 	void ApplyRoundedRegion();      // 回退方案：用窗口区域裁出圆角
 	bool m_rounded_by_region = false;   // 是否走了区域裁剪方案
 	cv::Mat m_main_display;         // 主显示区当前显示的内容（保存图像时以它为准）
+
+	// ---- 立体视觉会话状态：标定 → 校正 → 视差 → 深度 依次传递 ----
+	Calibration::MonoResult m_calib_left;       // 左相机单目标定结果
+	Calibration::MonoResult m_calib_right;      // 右相机单目标定结果
+	Calibration::StereoResult m_calib_stereo;   // 双目标定结果（R、T、基线）
+	Calibration::RectifyResult m_calib_rect;    // 立体校正参数
+	cv::Mat m_rect_left;                        // 校正后的左图
+	cv::Mat m_rect_right;                       // 校正后的右图
+	Stereo::DisparityResult m_disparity;        // 最近一次视差结果
+	bool m_has_calibration = false;             // 是否已完成标定
 };

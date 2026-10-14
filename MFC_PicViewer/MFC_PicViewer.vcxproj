@@ -202,6 +202,8 @@
     <ClInclude Include="MyMenu.h" />
     <ClInclude Include="MyMorphology.h" />
     <ClInclude Include="MyFeatureMatch.h" />
+    <ClInclude Include="MyCalibration.h" />
+    <ClInclude Include="MyStereo.h" />
     <ClInclude Include="MyNoise.h" />
     <ClInclude Include="MyOpenCV.h" />
     <ClInclude Include="MyStatic.h" />
@@ -222,6 +224,8 @@
     <ClCompile Include="MyMenu.cpp" />
     <ClCompile Include="MyMorphology.cpp" />
     <ClCompile Include="MyFeatureMatch.cpp" />
+    <ClCompile Include="MyCalibration.cpp" />
+    <ClCompile Include="MyStereo.cpp" />
     <ClCompile Include="MyNoise.cpp" />
     <ClCompile Include="MyOpenCV.cpp" />
     <ClCompile Include="MyStatic.cpp" />

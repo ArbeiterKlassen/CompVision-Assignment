@@ -45,6 +45,12 @@
     <ClInclude Include="MyFeatureMatch.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MyCalibration.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MyStereo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="MyStatic.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -99,6 +105,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyFeatureMatch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyCalibration.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MyStereo.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MyStatic.cpp">

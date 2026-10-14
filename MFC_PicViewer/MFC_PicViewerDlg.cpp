@@ -94,6 +94,28 @@ struct AppParams {
     double match_ransac_threshold = 3.0;
     int match_max_draw_matches = 100;
 
+    // ---- 摄像机标定 ----
+    int board_width = 9;                // 棋盘格内角点数（列）
+    int board_height = 6;               // 棋盘格内角点数（行）
+    double square_size = 0.025;         // 方格边长（米）
+    int subpix_win = 11;                // 亚像素细化窗口
+    bool use_subpix = true;             // 是否做角点亚像素细化
+    bool stereo_fix_intrinsics = true;  // 双目标定是否固定各自内参
+
+    // ---- 立体匹配 ----
+    int stereo_mode = 1;                // 1 = SGBM，2 = BM
+    int stereo_num_disparities = 64;    // 视差搜索范围（16 的倍数）
+    int stereo_block_size = 9;          // 匹配窗口（奇数）
+    int stereo_min_disparity = 0;       // 最小视差
+    int stereo_p1 = 0;                  // SGBM 平滑项，0 表示自动取 8*bs^2
+    int stereo_p2 = 0;                  // SGBM 平滑项，0 表示自动取 32*bs^2
+    int stereo_disp12_max_diff = 0;     // 左右一致性检查阈值
+    int stereo_prefilter_cap = 31;      // 预处理截断值
+    int stereo_uniqueness_ratio = 10;   // 唯一性比率（百分数）
+    int stereo_speckle_window_size = 100;  // 斑点滤除窗口
+    int stereo_speckle_range = 2;       // 斑点滤除视差范围
+    int stereo_median_size = 5;         // 视差中值滤波窗口（0 表示不做）
+
     // ---- 边缘检测 ----
     double default_edge_threshold = 100;
     double default_edge_laplacian_level1_threshold = 100;
@@ -209,6 +231,14 @@ static const MenuItemDef kMatchMenuItems[] = {
     { MSG_MENU_MATCH_AKAZE, _T("AKAZE 特征匹配") },
 };
 
+static const MenuItemDef kStereoMenuItems[] = {
+    { MSG_MENU_MATCH_OPEN_SECOND, _T("打开右图") },
+    { MSG_MENU_CALIBRATE, _T("相机标定") },
+    { MSG_MENU_RECTIFY_STEREO, _T("立体校正") },
+    { MSG_MENU_DISPARITY_SGBM, _T("SGBM 视差") },
+    { MSG_MENU_DISPARITY_DEPTH, _T("视差转深度") },
+};
+
 static const MenuBarDef kMenuBars[] = {
     { 10,  kFileMenuItems,    _countof(kFileMenuItems) },
     { 70,  kEditMenuItems,    _countof(kEditMenuItems) },
@@ -218,7 +248,16 @@ static const MenuBarDef kMenuBars[] = {
     { 310, kAnalyzeMenuItems, _countof(kAnalyzeMenuItems) },
     { 370, kOptionMenuItems,  _countof(kOptionMenuItems) },
     { 430, kMatchMenuItems,   _countof(kMatchMenuItems) },
+    { 490, kStereoMenuItems,  _countof(kStereoMenuItems) },
 };
+
+// 四位小数的数字串：报告与信息栏统一保留四位小数
+static std::string Num(double value)
+{
+    char buf[64];
+    sprintf_s(buf, "%.4f", value);
+    return std::string(buf);
+}
 
 // ===================== 图像操作注册表 =====================
 // 每个图像操作（灰度化、滤波、边缘检测等）声明为一个条目：
@@ -305,8 +344,8 @@ BEGIN_MESSAGE_MAP(CMFCPicViewerDlg, CDialogEx)
 	ON_COMMAND(MSG_MENU_SAVETO, &CMFCPicViewerDlg::OnMenuSaveTo)
 	ON_COMMAND(MSG_MENU_SAVEASTO, &CMFCPicViewerDlg::OnMenuSaveAsTo)
 
-	// 图像操作（灰度化 ~ 分水岭、撤销/重做、特征匹配等）统一分发
-	ON_COMMAND_RANGE(MSG_MENU_GRAYIZE, MSG_MENU_MATCH_AKAZE, &CMFCPicViewerDlg::OnMenuOperationRange)
+	// 图像操作（灰度化 ~ 分水岭、撤销/重做、特征匹配、立体视觉等）统一分发
+	ON_COMMAND_RANGE(MSG_MENU_GRAYIZE, MSG_MENU_DISPARITY_DEPTH, &CMFCPicViewerDlg::OnMenuOperationRange)
 END_MESSAGE_MAP()
 
 
@@ -529,6 +568,19 @@ void CMFCPicViewerDlg::OnPaint()
 		str1 = TEXT("匹配");
 		dc.SetTextColor(RGB(185, 192, 197));
 		dc.DrawText(str1, m_rtBtnMatch, DT_LEFT | DT_VCENTER);
+		//绘制立体视觉菜单栏（四个汉字，命中区域相应加宽）
+		GetClientRect(&rtBtnClo);
+		rtBtnClo.left = rtBtnClo.left + 490;
+		rtBtnClo.right = rtBtnClo.left + 62;
+		rtBtnClo.bottom = static_cast<LONG>(rtBtnClo.bottom * 0.1);
+		rtBtnClo.top = rtBtnClo.bottom - 20;
+		m_rtBtnStereo = rtBtnClo;
+		dc.Rectangle(rtBtnClo);
+		dc.FillSolidRect(m_rtBtnStereo, RGB(45, 51, 59));
+		dc.SetBkMode(TRANSPARENT);
+		str1 = TEXT("立体视觉");
+		dc.SetTextColor(RGB(185, 192, 197));
+		dc.DrawText(str1, m_rtBtnStereo, DT_LEFT | DT_VCENTER);
 
 		SelectObject(dc, loldfont);
 		DeleteObject(hNewFont);
@@ -567,6 +619,7 @@ LRESULT CMFCPicViewerDlg::OnNcHitTest(CPoint point)
 			m_rtBtnNoise.PtInRect(point) ||
 			m_rtBtnAnalyze.PtInRect(point) ||
 			m_rtBtnMatch.PtInRect(point) ||
+			m_rtBtnStereo.PtInRect(point) ||
 			m_rBtnOption.PtInRect(point))
 		{
 			nHitTest = HTCLIENT;
@@ -824,10 +877,10 @@ void CMFCPicViewerDlg::CVMat_to_Pic(const cv::Mat& img, UINT nID)
 void CMFCPicViewerDlg::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// 菜单栏矩形与声明式菜单表 kMenuBars 按相同顺序一一对应：
-	// 文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置 / 匹配
+	// 文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置 / 匹配 / 立体视觉
 	const CRect* menuRects[] = {
 		&m_rtBtnfile, &m_rtBtnEdit, &m_rtBtnEnhance, &m_rtBtnFilterate,
-		&m_rtBtnNoise, &m_rtBtnAnalyze, &m_rBtnOption, &m_rtBtnMatch
+		&m_rtBtnNoise, &m_rtBtnAnalyze, &m_rBtnOption, &m_rtBtnMatch, &m_rtBtnStereo
 	};
 	for (int i = 0; i < _countof(menuRects); ++i)
 	{
@@ -1338,6 +1391,24 @@ void CMFCPicViewerDlg::OnMenuLoadProperties() {
 		g_params.match_max_features = stoi(parser.getValue("feature_match", "match_max_features"));
 		g_params.match_ransac_threshold = stod(parser.getValue("feature_match", "match_ransac_threshold"));
 		g_params.match_max_draw_matches = stoi(parser.getValue("feature_match", "match_max_draw_matches"));
+		g_params.board_width = stoi(parser.getValue("calibration", "board_width"));
+		g_params.board_height = stoi(parser.getValue("calibration", "board_height"));
+		g_params.square_size = stod(parser.getValue("calibration", "square_size"));
+		g_params.subpix_win = stoi(parser.getValue("calibration", "subpix_win"));
+		g_params.use_subpix = (bool)stoi(parser.getValue("calibration", "use_subpix"));
+		g_params.stereo_fix_intrinsics = (bool)stoi(parser.getValue("calibration", "stereo_fix_intrinsics"));
+		g_params.stereo_mode = stoi(parser.getValue("stereo", "stereo_mode"));
+		g_params.stereo_num_disparities = stoi(parser.getValue("stereo", "stereo_num_disparities"));
+		g_params.stereo_block_size = stoi(parser.getValue("stereo", "stereo_block_size"));
+		g_params.stereo_min_disparity = stoi(parser.getValue("stereo", "stereo_min_disparity"));
+		g_params.stereo_p1 = stoi(parser.getValue("stereo", "stereo_p1"));
+		g_params.stereo_p2 = stoi(parser.getValue("stereo", "stereo_p2"));
+		g_params.stereo_disp12_max_diff = stoi(parser.getValue("stereo", "stereo_disp12_max_diff"));
+		g_params.stereo_prefilter_cap = stoi(parser.getValue("stereo", "stereo_prefilter_cap"));
+		g_params.stereo_uniqueness_ratio = stoi(parser.getValue("stereo", "stereo_uniqueness_ratio"));
+		g_params.stereo_speckle_window_size = stoi(parser.getValue("stereo", "stereo_speckle_window_size"));
+		g_params.stereo_speckle_range = stoi(parser.getValue("stereo", "stereo_speckle_range"));
+		g_params.stereo_median_size = stoi(parser.getValue("stereo", "stereo_median_size"));
 		res = parser.getAll();
 		Info_append("sections: " + std::to_string(res.size()));
 		for (std::map<std::string, std::map<std::string, std::string>>::iterator it = res.begin(); it != res.end(); ++it) {
@@ -1372,6 +1443,11 @@ void CMFCPicViewerDlg::OnMenuOperationRange(UINT nID)
 	case MSG_MENU_MATCH_ORB:       OnMenuMatchORB(); return;
 	case MSG_MENU_MATCH_SIFT:      OnMenuMatchSIFT(); return;
 	case MSG_MENU_MATCH_AKAZE:     OnMenuMatchAKAZE(); return;
+	// 立体视觉：结果同样输出到分析区，状态按 标定 → 校正 → 视差 → 深度 依次传递
+	case MSG_MENU_CALIBRATE:       OnMenuCalibrate(); return;
+	case MSG_MENU_RECTIFY_STEREO:  OnMenuRectifyStereo(); return;
+	case MSG_MENU_DISPARITY_SGBM:  OnMenuDisparitySGBM(); return;
+	case MSG_MENU_DISPARITY_DEPTH: OnMenuDisparityDepth(); return;
 	default: break;
 	}
 
@@ -1724,4 +1800,294 @@ void CMFCPicViewerDlg::OnMenuMatchSIFT()
 void CMFCPicViewerDlg::OnMenuMatchAKAZE()
 {
 	RunFeatureMatch(FeatureMatch::Modules::AKAZE_MATCH, _T("AKAZE 特征匹配"));
+}
+
+// ===================== 立体视觉 =====================
+
+// 把左右两幅图并排拼成一张；line_step > 0 时叠加水平线，用于检查校正后的极线对齐
+static cv::Mat SideBySide(const cv::Mat& left, const cv::Mat& right, int line_step = 0)
+{
+	if (left.empty() || right.empty())return cv::Mat();
+	cv::Mat l, r;
+	if (left.channels() == 1)cvtColor(left, l, COLOR_GRAY2BGR); else l = left.clone();
+	if (right.channels() == 1)cvtColor(right, r, COLOR_GRAY2BGR); else r = right.clone();
+
+	int height = std::max(l.rows, r.rows);
+	cv::Mat canvas(height, l.cols + r.cols, CV_8UC3, cv::Scalar(39, 34, 30));
+	l.copyTo(canvas(cv::Rect(0, 0, l.cols, l.rows)));
+	r.copyTo(canvas(cv::Rect(l.cols, 0, r.cols, r.rows)));
+	if (line_step > 0)
+	{
+		for (int y = line_step; y < height; y += line_step)
+			cv::line(canvas, cv::Point(0, y), cv::Point(canvas.cols - 1, y), cv::Scalar(0, 255, 0), 1);
+	}
+	return canvas;
+}
+
+// 立体视觉结果统一显示：主显示区展示结果图，同时存入分析结果槽位，
+// 便于用「文件 - 保存分析结果到」导出（与直方图、特征匹配的做法一致）
+void CMFCPicViewerDlg::ShowResultView(const cv::Mat& img)
+{
+	if (img.empty())return;
+	m_doc.setAnalyze(img);
+	CVMat_to_Pic(img, IDC_STATIC_PIC);
+}
+
+// 任务一：相机标定。选目录 → 棋盘格角点检测 → 单目标定 → 双目标定 → 立体校正
+void CMFCPicViewerDlg::OnMenuCalibrate()
+{
+	// 选择存放左右棋盘格图像的目录（文件名形如 left01.jpg / right01.jpg）
+	TCHAR szPath[MAX_PATH]{};
+	BROWSEINFO bi{};
+	bi.hwndOwner = this->m_hWnd;
+	bi.lpszTitle = _T("请选择存放左右棋盘格图像的目录");
+	bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	if (pidl == nullptr)return;
+	if (!SHGetPathFromIDList(pidl, szPath))
+	{
+		CoTaskMemFree(pidl);
+		return;
+	}
+	CoTaskMemFree(pidl);
+
+	CString folder = szPath;
+	if (folder.Right(1) != _T("\\"))folder += _T("\\");
+
+	// 枚举 left* 文件并与同名 right* 配对
+	std::vector<CString> left_files;
+	WIN32_FIND_DATA find_data{};
+	HANDLE h_find = FindFirstFile(folder + _T("left*.*"), &find_data);
+	if (h_find == INVALID_HANDLE_VALUE)
+	{
+		AfxMessageBox(_T("该目录下没有找到 left* 图像，请确认文件名形如 left01.jpg / right01.jpg。"), MB_ICONWARNING);
+		return;
+	}
+	do
+	{
+		if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)continue;
+		left_files.push_back(find_data.cFileName);
+	} while (FindNextFile(h_find, &find_data));
+	FindClose(h_find);
+	std::sort(left_files.begin(), left_files.end());
+
+	const cv::Size board_size(g_params.board_width, g_params.board_height);
+	std::vector<std::vector<cv::Point2f>> left_points, right_points;
+	cv::Mat first_pair_vis;
+	cv::Size image_size;
+	int pair_count = 0, ok_count = 0;
+
+	for (size_t i = 0; i < left_files.size(); ++i)
+	{
+		CString right_name = left_files[i];
+		int pos = right_name.Find(_T("left"));
+		if (pos < 0)continue;
+		right_name = right_name.Left(pos) + _T("right") + right_name.Mid(pos + 4);
+		if (GetFileAttributes(folder + right_name) == INVALID_FILE_ATTRIBUTES)continue;
+		++pair_count;
+
+		cv::Mat gray_left = cv::imread(Cstring_to_cvString(folder + left_files[i]), IMREAD_GRAYSCALE);
+		cv::Mat gray_right = cv::imread(Cstring_to_cvString(folder + right_name), IMREAD_GRAYSCALE);
+		if (gray_left.empty() || gray_right.empty())continue;
+		image_size = gray_left.size();
+
+		std::vector<cv::Point2f> corners_left, corners_right;
+		bool found_left = Calibration::findChessboard(gray_left, board_size, corners_left,
+			g_params.subpix_win, g_params.use_subpix);
+		bool found_right = Calibration::findChessboard(gray_right, board_size, corners_right,
+			g_params.subpix_win, g_params.use_subpix);
+		if (!found_left || !found_right)continue;
+
+		left_points.push_back(corners_left);
+		right_points.push_back(corners_right);
+		++ok_count;
+		if (first_pair_vis.empty())
+		{
+			cv::Mat vis_left, vis_right;
+			cvtColor(gray_left, vis_left, COLOR_GRAY2BGR);
+			cvtColor(gray_right, vis_right, COLOR_GRAY2BGR);
+			drawChessboardCorners(vis_left, board_size, corners_left, true);
+			drawChessboardCorners(vis_right, board_size, corners_right, true);
+			first_pair_vis = SideBySide(vis_left, vis_right);
+		}
+	}
+
+	Info_append("相机标定：扫描 " + std::to_string(pair_count) + " 对图像，成功检出 " + std::to_string(ok_count) + " 对");
+	if (ok_count < 3)
+	{
+		AfxMessageBox(_T("成功检出棋盘格的图像太少，无法完成标定！"), MB_ICONWARNING);
+		return;
+	}
+
+	// 单目标定（张正友平面棋盘格法）→ 双目标定（相对位姿）→ 立体校正
+	m_calib_left = Calibration::calibrateMono(left_points, image_size, board_size, g_params.square_size);
+	m_calib_right = Calibration::calibrateMono(right_points, image_size, board_size, g_params.square_size);
+	int flags = g_params.stereo_fix_intrinsics ? cv::CALIB_FIX_INTRINSIC : 0;
+	m_calib_stereo = Calibration::calibrateStereo(left_points, right_points, image_size, board_size,
+		g_params.square_size, m_calib_left, m_calib_right, flags);
+	m_calib_rect = Calibration::rectify(m_calib_left, m_calib_right, m_calib_stereo, image_size, -1.0);
+	m_has_calibration = m_calib_left.success && m_calib_right.success && m_calib_stereo.success;
+	if (!m_has_calibration)
+	{
+		AfxMessageBox(_T("标定失败！"), MB_ICONERROR);
+		return;
+	}
+
+	double mean_dv = 0.0, max_dv = 0.0;
+	if (m_calib_rect.success)
+	{
+		Calibration::epipolarError(left_points, right_points,
+			m_calib_left.camera_matrix, m_calib_left.dist_coeffs, m_calib_rect.R1, m_calib_rect.P1,
+			m_calib_right.camera_matrix, m_calib_right.dist_coeffs, m_calib_rect.R2, m_calib_rect.P2,
+			mean_dv, max_dv);
+	}
+
+	Info_append("棋盘格内角点 " + std::to_string(board_size.width) + " x " + std::to_string(board_size.height)
+		+ "，方格边长 " + Num(g_params.square_size) + " m");
+	Info_append("重投影误差 RMS：左 " + Num(m_calib_left.rms) + " px，右 " + Num(m_calib_right.rms) + " px");
+	Info_append("左内参：fx = " + Num(m_calib_left.camera_matrix.at<double>(0, 0))
+		+ "，fy = " + Num(m_calib_left.camera_matrix.at<double>(1, 1))
+		+ "，cx = " + Num(m_calib_left.camera_matrix.at<double>(0, 2))
+		+ "，cy = " + Num(m_calib_left.camera_matrix.at<double>(1, 2)));
+	Info_append("基线 |T| = " + Num(m_calib_stereo.baseline) + " m，双目标定 RMS = " + Num(m_calib_stereo.rms) + " px");
+	Info_append("校正后极线对齐误差：均值 " + Num(mean_dv) + " px，最大 " + Num(max_dv) + " px");
+	if (!first_pair_vis.empty())ShowResultView(first_pair_vis);
+}
+
+// 立体校正：用标定结果把左右图重映射到同一极线坐标系
+void CMFCPicViewerDlg::OnMenuRectifyStereo()
+{
+	if (!m_has_calibration)
+	{
+		AfxMessageBox(_T("请先执行「立体视觉 - 相机标定」！"), MB_ICONWARNING);
+		return;
+	}
+	if (!m_doc.hasImage() || m_doc.reference().empty())
+	{
+		AfxMessageBox(_T("请先载入左右图像：左图用「文件 - 打开」，右图用「立体视觉 - 打开右图」。"), MB_ICONWARNING);
+		return;
+	}
+
+	cv::Mat map1x, map1y, map2x, map2y;
+	Calibration::getRectifyMaps(m_calib_left, m_calib_right, m_calib_rect, map1x, map1y, map2x, map2y);
+	m_rect_left = Calibration::remapImage(m_doc.current(), map1x, map1y);
+	m_rect_right = Calibration::remapImage(m_doc.reference(), map2x, map2y);
+	if (m_rect_left.empty() || m_rect_right.empty())
+	{
+		AfxMessageBox(_T("立体校正失败！"), MB_ICONERROR);
+		return;
+	}
+
+	// 并排显示并叠加水平线：校正正确时同名点应落在同一条线上
+	ShowResultView(SideBySide(m_rect_left, m_rect_right, 40));
+	Info_append("立体校正完成：图像尺寸 " + std::to_string(m_calib_rect.image_size.width)
+		+ " x " + std::to_string(m_calib_rect.image_size.height));
+	Info_append("校正后焦距：左 " + Num(m_calib_rect.P1.at<double>(0, 0))
+		+ " px，右 " + Num(m_calib_rect.P2.at<double>(0, 0)) + " px");
+}
+
+// 任务二：SGBM / BM 计算视差
+void CMFCPicViewerDlg::OnMenuDisparitySGBM()
+{
+	if (m_rect_left.empty() || m_rect_right.empty())
+	{
+		AfxMessageBox(_T("请先执行「立体视觉 - 立体校正」！"), MB_ICONWARNING);
+		return;
+	}
+
+	Stereo::Params params;
+	params.mode = (g_params.stereo_mode == 2) ? Stereo::Modules::BM : Stereo::Modules::SGBM;
+	params.num_disparities = g_params.stereo_num_disparities;
+	params.block_size = g_params.stereo_block_size;
+	params.min_disparity = g_params.stereo_min_disparity;
+	params.p1 = g_params.stereo_p1;
+	params.p2 = g_params.stereo_p2;
+	params.disp12_max_diff = g_params.stereo_disp12_max_diff;
+	params.prefilter_cap = g_params.stereo_prefilter_cap;
+	params.uniqueness_ratio = g_params.stereo_uniqueness_ratio;
+	params.speckle_window_size = g_params.stereo_speckle_window_size;
+	params.speckle_range = g_params.stereo_speckle_range;
+
+	int64 t0 = getTickCount();
+	Stereo::DisparityResult raw = Stereo::computeDisparity(m_rect_left, m_rect_right, params);
+	if (!raw.success)
+	{
+		AfxMessageBox(_T("视差计算失败！"), MB_ICONERROR);
+		return;
+	}
+	m_disparity = Stereo::postProcess(raw, params, g_params.stereo_median_size);
+	double elapsed = double(getTickCount() - t0) / getTickFrequency();
+
+	ShowResultView(Stereo::colorize(m_disparity.disparity, double(params.num_disparities)));
+	Info_append(std::string(params.mode == Stereo::Modules::BM ? "BM" : "SGBM")
+		+ " 视差计算完成，用时 " + Num(elapsed) + " s");
+	Info_append("视差范围 " + std::to_string(params.num_disparities)
+		+ "，匹配窗口 " + std::to_string(params.block_size)
+		+ "，中值滤波 " + std::to_string(g_params.stereo_median_size));
+	Info_append("有效视差比例 = " + Num(m_disparity.valid_ratio)
+		+ "，视差中位数 = " + Num(Stereo::medianDisparity(m_disparity.disparity, m_disparity.valid_mask)) + " px");
+}
+
+// 视差转深度：Z = f B / d
+void CMFCPicViewerDlg::OnMenuDisparityDepth()
+{
+	if (!m_disparity.success || m_disparity.disparity.empty())
+	{
+		AfxMessageBox(_T("请先执行「立体视觉 - SGBM 视差」！"), MB_ICONWARNING);
+		return;
+	}
+	if (!m_has_calibration)
+	{
+		AfxMessageBox(_T("缺少标定结果，无法把视差换算成深度！"), MB_ICONWARNING);
+		return;
+	}
+
+	// 校正后左右焦距取 P1、P2 的平均，基线取双目标定的 |T|
+	double focal = (m_calib_rect.P1.at<double>(0, 0) + m_calib_rect.P2.at<double>(0, 0)) / 2.0;
+	double baseline = m_calib_stereo.baseline;
+	double valid_ratio = 0.0;
+	cv::Mat depth = Stereo::disparityToDepth(m_disparity.disparity, focal, baseline, valid_ratio);
+	if (depth.empty())
+	{
+		AfxMessageBox(_T("深度换算失败！"), MB_ICONERROR);
+		return;
+	}
+
+	// 深度着色：以有效深度中位数的 2 倍作为显示上限，近处暖色、远处冷色
+	std::vector<float> valid_depths;
+	for (int y = 0; y < depth.rows; ++y)
+	{
+		const float* p = depth.ptr<float>(y);
+		for (int x = 0; x < depth.cols; ++x)
+			if (p[x] > 0.0f)valid_depths.push_back(p[x]);
+	}
+	double z_median = 0.0, z_max = 1.0;
+	if (!valid_depths.empty())
+	{
+		size_t mid = valid_depths.size() / 2;
+		std::nth_element(valid_depths.begin(), valid_depths.begin() + mid, valid_depths.end());
+		z_median = double(valid_depths[mid]);
+		z_max = z_median * 2.0;
+	}
+	cv::Mat gray = cv::Mat::zeros(depth.size(), CV_8U);
+	for (int y = 0; y < depth.rows; ++y)
+	{
+		const float* p = depth.ptr<float>(y);
+		uchar* g = gray.ptr<uchar>(y);
+		for (int x = 0; x < depth.cols; ++x)
+		{
+			if (p[x] <= 0.0f)continue;
+			double relative = std::min(double(p[x]), z_max) / z_max;
+			g[x] = saturate_cast<uchar>(255.0 * (1.0 - relative));
+		}
+	}
+	cv::Mat depth_vis;
+	applyColorMap(gray, depth_vis, COLORMAP_JET);
+	ShowResultView(depth_vis);
+
+	// 理论深度分辨率：ΔZ = Z^2 Δd / (f B)，这里按 Δd = 1 像素给出
+	double delta_z = (z_median > 0.0) ? (z_median * z_median * 1.0 / (focal * baseline)) : 0.0;
+	Info_append("视差转深度完成：f = " + Num(focal) + " px，B = " + Num(baseline) + " m");
+	Info_append("有效深度比例 = " + Num(valid_ratio) + "，深度中位数 = " + Num(z_median) + " m");
+	Info_append("中位深度处理论分辨率 ΔZ(Δd=1px) = " + Num(delta_z) + " m");
 }

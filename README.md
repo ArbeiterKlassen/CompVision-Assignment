@@ -54,6 +54,14 @@
 ### 频域
 - 离散傅里叶变换（DFT）/ 逆变换（IDFT）
 
+### 立体视觉（第五章）
+- 相机标定：棋盘格角点检测（含亚像素细化）、单目标定（K / 畸变系数 / 逐幅图重投影误差）、
+  双目标定（R、T、E、F 与基线 |T|）、立体校正（`stereoRectify`）与畸变校正
+- 立体校正：由标定结果生成校正映射并重映射左右图，并排显示并叠加水平线检查极线对齐
+- 视差计算：SGBM 与 BM 两条路径，参数（视差范围、匹配窗口、P1/P2、左右一致性阈值、
+  唯一性比率、斑点滤除、中值滤波）全部可在 `properties.ini` 中调整；含无效视差掩膜
+- 视差转深度：按讲义式 $Z=fB/d$ 输出深度图，并给出中位深度与理论分辨率 $\Delta Z=Z^2\Delta d/(fB)$
+
 ### 分析
 - 彩色直方图分析
 - 灰度直方图分析（含均值 / 方差 / 信息熵统计）
@@ -70,6 +78,8 @@ MFC_PicViewer/
 ├── MyFilter.cpp / .h                 # 空间域滤波 + 巴特沃斯频域滤波 + 双边滤波
 ├── MyMorphology.cpp / .h             # 形态学：腐蚀 / 膨胀 / 开 / 闭
 ├── MyFeatureMatch.cpp / .h           # 特征匹配：ORB / SIFT / AKAZE + 比值检验 + RANSAC
+├── MyCalibration.cpp / .h            # 相机标定：棋盘格检测 / 单目与双目标定 / 立体校正
+├── MyStereo.cpp / .h                 # 立体匹配：SGBM 与 BM 视差 / 后处理 / 视差转深度
 ├── MyNoise.cpp / .h                  # AWGN / 泊松-高斯 / ELD-SFRN 噪声
 ├── MyOpenCV.cpp / .h                 # 仿射变换封装
 ├── MyMenu.cpp / .h                   # 自绘弹出菜单
@@ -90,9 +100,12 @@ MFC_PicViewer/
 
 ## 使用
 
-- 顶部菜单栏：**文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置 / 匹配**
+- 顶部菜单栏：**文件 / 编辑 / 增强 / 滤波 / 噪声 / 分析 / 配置 / 匹配 / 立体视觉**
 - 点击菜单栏文字弹出对应功能菜单
 - 特征匹配流程：「文件 → 打开」载入第一张 → 「匹配 → 打开第二张图像」载入另一角度照片 → 选择 ORB / SIFT / AKAZE 之一
+- 立体视觉流程：「文件 → 打开」载入左图 → 「立体视觉 → 打开右图」载入右图 →
+  「相机标定」选择棋盘格图像目录（文件名形如 `left01.jpg` / `right01.jpg`）→
+  「立体校正」→「SGBM 视差」→「视差转深度」；结果同样存入分析结果槽位，可用「文件 - 保存分析结果到」导出
 - 修改 `properties.ini` 后，通过「配置 → 参数载入」热加载，无需重新编译
 - 底部信息栏输出每次操作的日志与统计结果
 
@@ -121,14 +134,28 @@ MFC_PicViewer/
 | feature_match | match_max_features | 1000 | 检测子保留的最大特征点数 |
 | feature_match | match_ransac_threshold | 3.0 | RANSAC 单应性重投影阈值（像素） |
 | feature_match | match_max_draw_matches | 100 | 可视化中绘制的连线数量上限 |
+| calibration | board_width / board_height | 9 / 6 | 棋盘格内角点数（列 / 行） |
+| calibration | square_size | 0.025 | 方格边长（米） |
+| calibration | subpix_win / use_subpix | 11 / 1 | 角点亚像素细化窗口 / 是否启用 |
+| calibration | stereo_fix_intrinsics | 1 | 双目标定是否固定各自内参 |
+| stereo | stereo_mode | 1 | 1 = SGBM，2 = BM |
+| stereo | stereo_num_disparities / stereo_block_size | 64 / 9 | 视差搜索范围 / 匹配窗口 |
+| stereo | stereo_p1 / stereo_p2 | 0 / 0 | SGBM 平滑项（0 表示按窗口自动取值） |
+| stereo | stereo_disp12_max_diff | 0 | 左右一致性检查阈值（0 表示关闭） |
+| stereo | stereo_uniqueness_ratio | 10 | 唯一性比率（百分数） |
+| stereo | stereo_speckle_window_size / stereo_speckle_range | 100 / 2 | 斑点滤除窗口与视差范围 |
+| stereo | stereo_median_size | 5 | 视差中值滤波窗口 |
 
 ## 架构说明（2026-08 重构后）
 
 1. **ImageDocument 数据层**：原始图 / 当前图 / 分析图 / 参考图与文件路径统一管理，撤销 / 重做采用双栈实现，取代原全局变量。
 2. **图像操作注册表**：每个算法以 `ImageOpDef{ id, run, log, needsFreqDomain, toBgr }` 注册，由 `RunOperation()` 统一执行「检查 → 计算 → 类型转换 → 入栈 → 显示 → 日志」。新增算法只需注册条目 + 添加菜单项。
-3. **声明式菜单表**：8 个弹出菜单收敛为 `kMenuBars` 数据表 + 一个 `ShowPopupMenu()`。
+3. **声明式菜单表**：9 个弹出菜单收敛为 `kMenuBars` 数据表 + 一个 `ShowPopupMenu()`。
 4. **AppParams 参数结构体**：算法参数统一收敛，由 `properties.ini` 驱动。
-5. **窗口圆角**：优先请求 Windows 11 的 DWM 圆角（抗锯齿），系统不支持时回退为窗口区域裁剪（见 `ApplyRoundedCorners()`）。
+5. **立体视觉会话状态**：标定 → 校正 → 视差 → 深度 的结果在主对话框内依次传递
+   （`m_calib_left` / `m_calib_stereo` / `m_calib_rect` / `m_rect_left` / `m_disparity`），
+   结果统一显示在主显示区并存入分析结果槽位。
+6. **窗口圆角**：优先请求 Windows 11 的 DWM 圆角（抗锯齿），系统不支持时回退为窗口区域裁剪（见 `ApplyRoundedCorners()`）。
 
 ## 已知说明
 
